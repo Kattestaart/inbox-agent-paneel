@@ -175,6 +175,7 @@ async function save(akkoord){
   $('btnOk').disabled=false; $('btnSave').disabled=false;
 }
 Office.onReady(()=>{
+  if(!Office.context||!Office.context.mailbox){ msg('Dit paneel werkt alleen binnen Outlook. Voeg de invoegtoepassing toe via het manifest en open een mail.','warn'); return; }
   $('who').textContent=(Office.context.mailbox.userProfile&&Office.context.mailbox.userProfile.emailAddress)||'';
   $('cfgSave').onclick=()=>{ try{ const o=JSON.parse($('cfg').value.trim()); if(!o.beslissing||!o.objecten||!o.opslaan) throw 0; saveCfg(o); load(); }catch(e){ msg('Ongeldige configuratie.','err'); } };
   $('cfgOpen').onclick=e=>{ e.preventDefault(); $('setup').style.display='grid'; $('cfg').value=cfg?JSON.stringify(cfg):''; window.scrollTo(0,0); };
