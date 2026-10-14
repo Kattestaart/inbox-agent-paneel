@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Inbox Agent</title>
+<script src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script>
+<style>
+  :root{--red:#A3141F;--ink:#1F2A30;--muted:#5c666c;--line:#dcd8d2;--bg:#f6f5f3;--surface:#fff;--soft:#f6e3e4;--ok:#2e7d4f;--ok-soft:#e2f1e8;--warn:#9a6a00;--warn-soft:#f7edd6;--steel:#2f4752;--steel-soft:#e4ebee}
+  *{box-sizing:border-box}
+  body{margin:0;font-family:"Segoe UI",Arial,sans-serif;font-size:13px;color:var(--ink);background:var(--bg)}
+  .wrap{padding:10px 12px 90px;display:grid;gap:12px}
+  h1{font-size:15px;margin:0;display:flex;align-items:center;gap:8px}
+  h1 .dot{width:10px;height:10px;border-radius:2px;background:var(--red)}
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:10px 12px;display:grid;gap:8px}
+  .lbl{font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600}
+  .sub{font-weight:600;line-height:1.3}
+  .muted{color:var(--muted)}
+  .chips{display:flex;flex-wrap:wrap;gap:6px}
+  .chip{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:4px 10px;cursor:pointer;font-size:12px;line-height:1.2;user-select:none}
+  .chip:hover{border-color:var(--steel)}
+  .chip.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+  .chip.route{font-weight:600;padding:6px 10px}
+  .chip.route.on{background:var(--red);border-color:var(--red)}
+  .chip.agent::after{content:" ·";color:var(--red)}
+  input[type=text],textarea,select{width:100%;border:1px solid var(--line);border-radius:6px;padding:7px 9px;font:inherit;background:#fff;color:var(--ink)}
+  textarea{min-height:52px;resize:vertical}
+  .res{display:grid;gap:4px;max-height:180px;overflow:auto}
+  .res button{text-align:left;border:1px solid var(--line);background:#fff;border-radius:6px;padding:6px 8px;cursor:pointer;font:inherit}
+  .res button:hover{border-color:var(--red);background:var(--soft)}
+  .obj{display:flex;justify-content:space-between;align-items:center;gap:8px;background:var(--steel-soft);border-radius:6px;padding:6px 8px}
+  .obj b{font-size:12.5px}
+  .x{border:0;background:transparent;color:var(--muted);cursor:pointer;font-size:16px;line-height:1}
+  .bar{position:fixed;left:0;right:0;bottom:0;background:var(--surface);border-top:1px solid var(--line);padding:10px 12px;display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .btn{border:0;border-radius:6px;padding:10px;font:inherit;font-weight:700;cursor:pointer}
+  .btn.ok{background:var(--ok);color:#fff}
+  .btn.save{background:var(--red);color:#fff}
+  .btn:disabled{opacity:.5;cursor:default}
+  .msg{padding:8px 10px;border-radius:6px;font-size:12px}
+  .msg.ok{background:var(--ok-soft);color:var(--ok)}
+  .msg.warn{background:var(--warn-soft);color:var(--warn)}
+  .msg.err{background:var(--soft);color:var(--red)}
+  .meta{display:grid;grid-template-columns:auto 1fr;gap:3px 10px;font-size:12px}
+  .meta span:nth-child(odd){color:var(--muted)}
+  .tiny{font-size:11px;color:var(--muted)}
+  a.link{color:var(--red)}
+  #setup{display:none}
+  .row{display:flex;gap:6px}
+  .row input{flex:1}
+  .row .btn{padding:7px 10px;font-weight:600;background:var(--steel);color:#fff}
+</style>
+</head>
+<body>
+<div class="wrap" id="app">
+  <h1><span class="dot"></span>Inbox Agent <span class="tiny" id="who"></span></h1>
+
+  <div id="setup" class="card">
+    <div class="lbl">Eenmalige instelling</div>
+    <div>Plak hier de API-configuratie die je van de beheerder hebt gekregen. Deze wordt alleen op dit account bewaard.</div>
+    <textarea id="cfg" placeholder='{"beslissing":"https://…","objecten":"https://…","opslaan":"https://…"}'></textarea>
+    <button class="btn save" id="cfgSave">Opslaan</button>
+  </div>
+
+  <div id="status" class="msg warn">Mail wordt gelezen…</div>
+
+  <div id="main" style="display:none;gap:12px" class="wrap" >
+    <div class="card">
+      <div class="sub" id="subject"></div>
+      <div class="meta">
+        <span>Van</span><span id="from"></span>
+        <span>Richting</span><span id="richting"></span>
+        <span>Agent zegt</span><span id="agentzegt"></span>
+      </div>
+      <div id="samenvatting" class="muted"></div>
+      <div id="todo"></div>
+    </div>
+
+    <div class="card">
+      <div class="lbl">Route · wat moet ermee</div>
+      <div class="chips" id="routes"></div>
+    </div>
+
+    <div class="card">
+      <div class="lbl">Labels · waar gaat het over</div>
+      <div class="chips" id="labels"></div>
+    </div>
+
+    <div class="card">
+      <div class="lbl">Object (BC)</div>
+      <div id="objCur"></div>
+      <div class="row"><input type="text" id="objQ" placeholder="Zoek object: naam, plaats, OBJ-nummer…"><button class="btn" id="objGo">Zoek</button></div>
+      <div class="res" id="objRes"></div>
+    </div>
+
+    <div class="card">
+      <div class="lbl">Relatie afzender / externe partij</div>
+      <select id="relatie">
+        <option>Klant</option><option>Leverancier</option><option>Intern</option><option>Medewerker</option>
+        <option>Partner/Adviseur</option><option>Overheid/Instantie</option><option>Privé</option><option>Systeem</option><option>Onbekend</option>
+      </select>
+    </div>
+
+    <div class="card">
+      <div class="lbl">Vervolgacties (naast de route)</div>
+      <div class="chips" id="vervolg"></div>
+      <div class="tiny" id="vervolgtoel"></div>
+    </div>
+
+    <div class="card">
+      <div class="lbl">Waarom (helpt de agent leren)</div>
+      <textarea id="correctie" placeholder="Bijv. 'Henk alleen in CC, actie ligt bij Planning' — mag leeg blijven bij akkoord"></textarea>
+    </div>
+    <div class="tiny">Opslaan zet de categorieën op de mail, verplaatst hem naar de juiste map en markeert de beslissing als gecontroleerd. <a class="link" href="#" id="cfgOpen">Instellingen</a></div>
+  </div>
+</div>
+
+<div class="bar" id="bar" style="display:none">
+  <button class="btn ok" id="btnOk">✓ Akkoord</button>
+  <button class="btn save" id="btnSave">Opslaan</button>
+</div>
+
+<script>
+const ROUTES=[['A','Archiveren'],['B','→ Administratie'],['C','Beantwoorden'],['D','Beslissen'],['E','Lezen'],['F','Privé'],['G','Controleren']];
+const LABELS=['Object','Service/Support','Techniek/Product','Offerte','Order/Inkoop','Financieel','HR/Personeel','Pilotsafe','Systeem/Melding','Privé','Juridisch/Contract','Leverancier','Planning','Nieuwsbrief/Info','Overig'];
+const VERVOLG=['Agendapunt MT','Taak collega','Opvolgen/wachten op','Deadline/agenda','Verbeterpunt organisatie'];
+const $=id=>document.getElementById(id);
+let cfg=null, item=null, state={route:'',labels:new Set(),vervolg:new Set(),obj:null,relatie:'Onbekend',itemId:null,outlookId:null,title:''};
+
+function loadCfg(){ try{ const rs=Office.context.roamingSettings; const s=rs.get('inboxAgentCfg'); if(s) cfg=JSON.parse(s); }catch(e){} if(!cfg){ try{ const s=localStorage.getItem('inboxAgentCfg'); if(s) cfg=JSON.parse(s);}catch(e){} } return !!(cfg&&cfg.beslissing&&cfg.objecten&&cfg.opslaan); }
+function saveCfg(obj){ cfg=obj; try{ Office.context.roamingSettings.set('inboxAgentCfg',JSON.stringify(obj)); Office.context.roamingSettings.saveAsync(()=>{}); }catch(e){} try{ localStorage.setItem('inboxAgentCfg',JSON.stringify(obj)); }catch(e){} }
+async function api(name,body){ const r=await fetch(cfg[name],{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify(body)}); if(!r.ok) throw new Error('API '+name+' '+r.status); return r.json(); }
+function msg(t,cls){ const s=$('status'); s.className='msg '+cls; s.textContent=t; s.style.display=t?'':'none'; }
+function chip(txt,on,cls,fn){ const d=document.createElement('div'); d.className='chip '+(cls||'')+(on?' on':''); d.textContent=txt; d.onclick=fn; return d; }
+
+function renderRoutes(agent){ const c=$('routes'); c.innerHTML=''; ROUTES.forEach(([k,n])=>{ c.appendChild(chip(k+' '+n,state.route===k,'route'+(agent===k?' agent':''),()=>{state.route=k;renderRoutes(agent);})); }); }
+function renderLabels(agent){ const c=$('labels'); c.innerHTML=''; LABELS.forEach(l=>{ c.appendChild(chip(l,state.labels.has(l),(agent||[]).includes(l)?'agent':'',()=>{ state.labels.has(l)?state.labels.delete(l):state.labels.add(l); renderLabels(agent); })); }); }
+function renderVervolg(agent){ const c=$('vervolg'); c.innerHTML=''; VERVOLG.forEach(v=>{ c.appendChild(chip(v,state.vervolg.has(v),(agent||[]).includes(v)?'agent':'',()=>{ state.vervolg.has(v)?state.vervolg.delete(v):state.vervolg.add(v); renderVervolg(agent); })); }); }
+function renderObj(){ const c=$('objCur'); c.innerHTML=''; if(state.obj&&state.obj.objectnr){ const d=document.createElement('div'); d.className='obj'; d.innerHTML='<div><b>'+esc(state.obj.objectnr)+'</b> '+esc(state.obj.naam||'')+'<br><span class="tiny">'+esc([state.obj.adres,state.obj.plaats].filter(Boolean).join(', '))+(state.obj.klantnaam?' · klant '+esc(state.obj.klantnr||'')+' '+esc(state.obj.klantnaam):'')+'</span></div>'; const x=document.createElement('button'); x.className='x'; x.title='Object loskoppelen'; x.textContent='×'; x.onclick=()=>{state.obj=null;renderObj();}; d.appendChild(x); c.appendChild(d);} else { c.innerHTML='<span class="tiny">Geen object gekoppeld</span>'; } }
+function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m])); }
+const val=x=>(x&&typeof x==='object'&&'Value' in x)?x.Value:(x||'');
+const vals=a=>Array.isArray(a)?a.map(val):[];
+
+async function searchObj(){ const q=$('objQ').value.trim(); const res=$('objRes'); if(q.length<2){res.innerHTML='';return;} res.innerHTML='<span class="tiny">Zoeken…</span>'; try{ const list=await api('objecten',{q}); res.innerHTML=''; if(!list.length){res.innerHTML='<span class="tiny">Niets gevonden in BC-objecten.</span>';return;} list.forEach(o=>{ const b=document.createElement('button'); b.innerHTML='<b>'+esc(o.objectnr)+'</b> '+esc(o.naam||'')+'<br><span class="tiny">'+esc([o.adres,o.plaats].filter(Boolean).join(', '))+(o.klantnaam?' · '+esc(o.klantnaam):'')+'</span>'; b.onclick=()=>{ state.obj=o; state.labels.add('Object'); if(o.klantnr) { state.relatie='Klant'; $('relatie').value='Klant'; } renderObj(); renderLabels(item&&vals(item.Labels)); res.innerHTML=''; $('objQ').value=''; }; res.appendChild(b); }); }catch(e){ res.innerHTML='<span class="msg err">'+esc(e.message)+'</span>'; } }
+
+async function load(){
+  $('main').style.display='none'; $('bar').style.display='none';
+  if(!loadCfg()){ $('setup').style.display='grid'; msg('Eerst de API-configuratie instellen.','warn'); return; }
+  $('setup').style.display='none';
+  const it=Office.context.mailbox.item; if(!it){ msg('Selecteer een mail.','warn'); return; }
+  msg('Beslissing van de agent ophalen…','warn');
+  state.title=it.subject||''; state.outlookId=Office.context.mailbox.convertToRestId(it.itemId,Office.MailboxEnums.RestVersion.v2_0);
+  const mid=it.internetMessageId;
+  try{
+    const d=await api('beslissing',{messageId:mid});
+    $('subject').textContent=state.title; $('from').textContent=(it.from&&(it.from.displayName+' <'+it.from.emailAddress+'>'))||'';
+    if(!d.found){ item=null; msg('Deze mail is nog niet door de agent gelezen (staat hij in INBOX Agent?). Je kunt wel labels/object kiezen; die worden bewaard zodra de agent hem leest.','warn'); $('richting').textContent='–'; $('agentzegt').textContent='–'; $('samenvatting').textContent=''; $('todo').textContent=''; state={...state,route:'E',labels:new Set(),vervolg:new Set(),obj:null,relatie:'Onbekend',itemId:null}; renderRoutes(null); renderLabels([]); renderVervolg([]); renderObj(); $('main').style.display='grid'; $('bar').style.display='grid'; $('btnOk').disabled=true; $('btnSave').disabled=true; return; }
+    item=d.item; const agentRoute=(val(item.Route)||'G').charAt(0); const henkRoute=val(item.RouteHenk);
+    state.itemId=item.ID; state.route=(henkRoute||val(item.Route)||'G').charAt(0); state.labels=new Set(vals(item.Labels)); state.vervolg=new Set(vals(item.Vervolgacties)); state.relatie=val(item.Relatie)||'Onbekend'; $('relatie').value=state.relatie;
+    state.obj=item.Objectnr?{objectnr:item.Objectnr,naam:item.Objectnaam,adres:item.Adres,plaats:item.Plaats,klantnr:item.Klantnr,klantnaam:item.Klantnaam}:null;
+    $('richting').textContent=val(item.Richting)||'–'; $('agentzegt').textContent=(val(item.Route)||'')+' · zekerheid '+(val(item.Zekerheid)||'?')+(item.Gecontroleerd?' · ✓ gecontroleerd':'');
+    $('samenvatting').textContent=item.Samenvatting||''; $('todo').innerHTML=item.WatMoetIkDoen?('<b>Te doen:</b> '+esc(item.WatMoetIkDoen)):''; $('vervolgtoel').textContent=(item.VervolgToelichting||'').replace(/\n/g,' · '); $('correctie').value=item.Correctie||'';
+    renderRoutes(agentRoute); renderLabels(vals(item.Labels)); renderVervolg(vals(item.Vervolgacties)); renderObj();
+    msg(item.Gecontroleerd?'Al gecontroleerd. Je kunt nog aanpassen.':'','ok'); if(!item.Gecontroleerd) msg('','ok');
+    $('main').style.display='grid'; $('bar').style.display='grid'; $('btnOk').disabled=false; $('btnSave').disabled=false;
+  }catch(e){ msg('Fout: '+e.message,'err'); }
+}
+async function save(akkoord){
+  if(!state.itemId){ msg('Nog geen registratie om op te slaan.','warn'); return; }
+  $('btnOk').disabled=true; $('btnSave').disabled=true; msg(akkoord?'Akkoord opslaan…':'Opslaan…','warn');
+  const o=state.obj||{};
+  try{
+    const r=await api('opslaan',{itemId:state.itemId,outlookId:state.outlookId,title:state.title,route:state.route,labels:[...state.labels],objectnr:o.objectnr||'',objectnaam:o.naam||'',adres:o.adres||'',plaats:o.plaats||'',klantnr:o.klantnr||'',klantnaam:o.klantnaam||'',relatie:$('relatie').value,correctie:$('correctie').value.trim(),vervolgacties:[...state.vervolg]});
+    msg((akkoord?'Akkoord vastgelegd':'Opgeslagen')+' · categorieën: '+(r.categorieen||[]).join(', ')+(r.verplaatst==='Succeeded'?' · mail verplaatst':''),'ok');
+  }catch(e){ msg('Opslaan mislukt: '+e.message,'err'); }
+  $('btnOk').disabled=false; $('btnSave').disabled=false;
+}
+Office.onReady(()=>{
+  $('who').textContent=(Office.context.mailbox.userProfile&&Office.context.mailbox.userProfile.emailAddress)||'';
+  $('cfgSave').onclick=()=>{ try{ const o=JSON.parse($('cfg').value.trim()); if(!o.beslissing||!o.objecten||!o.opslaan) throw 0; saveCfg(o); load(); }catch(e){ msg('Ongeldige configuratie.','err'); } };
+  $('cfgOpen').onclick=e=>{ e.preventDefault(); $('setup').style.display='grid'; $('cfg').value=cfg?JSON.stringify(cfg):''; window.scrollTo(0,0); };
+  $('objGo').onclick=searchObj; $('objQ').addEventListener('keydown',e=>{ if(e.key==='Enter') searchObj(); });
+  $('relatie').onchange=()=>{ state.relatie=$('relatie').value; };
+  $('btnOk').onclick=()=>save(true); $('btnSave').onclick=()=>save(false);
+  try{ Office.context.mailbox.addHandlerAsync(Office.EventType.ItemChanged,()=>load()); }catch(e){}
+  load();
+});
+</script>
+</body>
+</html>
