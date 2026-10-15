@@ -57,6 +57,29 @@
   .tab.on{color:var(--red);border-bottom-color:var(--red);font-weight:600}
   .pane{display:none;gap:8px}
   .pane.on{display:grid}
+  /* compact (taakvenster ±350 px) */
+  body{font-size:12.5px}
+  .wrap{padding:8px 10px 70px;gap:6px}
+  #main.wrap{padding:0;gap:6px}
+  .card{padding:8px 10px;gap:6px;border-radius:6px}
+  .chip{padding:3px 8px;font-size:11.5px}
+  .chip.route{padding:4px 8px}
+  .meta{font-size:11.5px;gap:2px 8px}
+  .sub{font-size:12.5px}
+  .tab{padding:4px 7px;font-size:11.5px}
+  .klist{display:grid;gap:3px;font-size:11.5px}
+  .klist .k{display:grid;grid-template-columns:62px 1fr auto;gap:6px;align-items:center;border-bottom:1px dashed var(--line);padding:2px 0}
+  .klist .k:last-child{border-bottom:0}
+  .klist .k .n{color:var(--muted)}
+  .klist .k .v{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .klist .k .v.empty{color:var(--muted);font-style:italic}
+  .klist a{color:var(--red);text-decoration:none;font-weight:600;white-space:nowrap}
+  details.card>summary{cursor:pointer;list-style:none;font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600}
+  details.card>summary::before{content:"▸ ";color:var(--red)}
+  details.card[open]>summary::before{content:"▾ "}
+  .bar{padding:8px 10px}
+  .btn{padding:8px}
+  .chip.more{border-style:dashed;color:var(--muted)}
 </style>
 </head>
 <body>
@@ -77,8 +100,7 @@
       <div class="sub" id="subject"></div>
       <div class="meta">
         <span>Van</span><span id="from"></span>
-        <span>Richting</span><span id="richting"></span>
-        <span>Agent zegt</span><span id="agentzegt"></span>
+        <span>Agent</span><span><span id="agentzegt"></span> · <span id="richting"></span></span>
       </div>
       <div id="samenvatting" class="muted"></div>
       <div id="todo"></div>
@@ -96,6 +118,7 @@
 
     <div class="card">
       <div class="lbl">Koppelingen <span class="hint">BC &amp; SharePoint</span></div>
+      <div class="klist" id="koppel"></div>
       <div class="tabs">
         <div class="tab on" data-t="obj">Object</div><div class="tab" data-t="klant">Klant</div><div class="tab" data-t="lev">Leverancier</div><div class="tab" data-t="doc">Document</div><div class="tab" data-t="map">Projectmap</div>
       </div>
@@ -127,24 +150,19 @@
       </div>
     </div>
 
-    <div class="card">
+    <details class="card" id="meer">
+      <summary>Meer · relatie, vervolgacties, waarom</summary>
       <div class="lbl">Relatie afzender / externe partij</div>
       <select id="relatie">
         <option>Klant</option><option>Leverancier</option><option>Intern</option><option>Medewerker</option>
         <option>Partner/Adviseur</option><option>Overheid/Instantie</option><option>Privé</option><option>Systeem</option><option>Onbekend</option>
       </select>
-    </div>
-
-    <div class="card">
       <div class="lbl">Vervolgacties (naast de route)</div>
       <div class="chips" id="vervolg"></div>
       <div class="tiny" id="vervolgtoel"></div>
-    </div>
-
-    <div class="card">
       <div class="lbl">Waarom (helpt de agent leren)</div>
       <textarea id="correctie" placeholder="Bijv. 'Henk alleen in CC, actie ligt bij Planning' — mag leeg blijven bij akkoord"></textarea>
-    </div>
+    </details>
     <div class="tiny">Opslaan zet de categorieën op de mail, verplaatst hem naar de juiste map, bewaart de koppelingen en markeert de beslissing als gecontroleerd. <a class="link" href="#" id="cfgOpen">Instellingen</a></div>
   </div>
 </div>
@@ -155,7 +173,8 @@
 </div>
 
 <script>
-const ROUTES=[['A','Archiveren'],['B','→ Administratie'],['C','Beantwoorden'],['D','Beslissen'],['E','Lezen'],['F','Privé'],['G','Controleren']];
+const ROUTES=[['A','Archief'],['B','Administratie'],['C','Antwoord'],['D','Besluit'],['E','Lezen'],['F','Privé'],['G','Twijfel']];
+let showAllLabels=false;
 const LABELS=['Object','Service/Support','Techniek/Product','Offerte','Order/Inkoop','Financieel','HR/Personeel','Pilotsafe','Systeem/Melding','Privé','Juridisch/Contract','Leverancier','Planning','Nieuwsbrief/Info','Overig'];
 const VERVOLG=['Agendapunt MT','Taak collega','Opvolgen/wachten op','Deadline/agenda','Verbeterpunt organisatie'];
 const DOCLBL={offerte:'Offerte',order:'Order',factuur:'Factuur',inkooporder:'Inkooporder',inkoopfactuur:'Inkoopfactuur'};
@@ -175,7 +194,26 @@ const vals=a=>Array.isArray(a)?a.map(val):[];
 const norm=s=>String(s||'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
 
 function renderRoutes(agent){ const c=$('routes'); c.innerHTML=''; ROUTES.forEach(([k,n])=>c.appendChild(chip(k+' '+n,state.route===k,'route'+(agent===k?' agent':''),()=>{state.route=k;renderRoutes(agent);}))); }
-function renderLabels(agent){ const c=$('labels'); c.innerHTML=''; LABELS.forEach(l=>c.appendChild(chip(l,state.labels.has(l),(agent||[]).includes(l)?'agent':'',()=>{ state.labels.has(l)?state.labels.delete(l):state.labels.add(l); renderLabels(agent); }))); }
+function renderLabels(agent){ const c=$('labels'); c.innerHTML=''; const show=LABELS.filter(l=>showAllLabels||state.labels.has(l)||(agent||[]).includes(l)); show.forEach(l=>c.appendChild(chip(l,state.labels.has(l),(agent||[]).includes(l)?'agent':'',()=>{ state.labels.has(l)?state.labels.delete(l):state.labels.add(l); renderLabels(agent); }))); c.appendChild(chip(showAllLabels?'minder':'+ label',false,'more',()=>{ showAllLabels=!showAllLabels; renderLabels(agent); })); }
+function renderKoppel(){
+  const c=$('koppel'); c.innerHTML='';
+  const SP='https://mmhbrandbeveiliging.sharepoint.com';
+  const rows=[
+    ['Object',state.obj?('<b>'+esc(state.obj.objectnr)+'</b> '+esc(state.obj.naam||'')+(state.obj.plaats?' · '+esc(state.obj.plaats):'')):'', 'obj', null],
+    ['Klant',state.klant?('<b>'+esc(state.klant.nr)+'</b> '+esc(state.klant.naam||'')):'', 'klant', null],
+    ['Leverancier',state.lev?('<b>'+esc(state.lev.nr)+'</b> '+esc(state.lev.naam||'')):'', 'lev', null],
+    ['Document',state.doc?('<b>'+esc(DOCLBL[state.doc.soort]||state.doc.soort)+' '+esc(state.doc.nr)+'</b> '+esc(state.doc.naam||'')):'', 'doc', null],
+    ['Projectmap',state.map?('<b>'+esc(state.map.naam)+'</b>'):'', 'map', state.map?(state.map.url||(SP+state.map.pad)):null]
+  ];
+  rows.forEach(([n,v,tab,url])=>{
+    const d=document.createElement('div'); d.className='k';
+    d.innerHTML='<span class="n">'+n+'</span><span class="v'+(v?'':' empty')+'">'+(v||'niet gekoppeld')+'</span>';
+    const a=document.createElement('a'); a.href=url||'#';
+    if(url){ a.target='_blank'; a.textContent='↗ SharePoint'; a.title='Projectmap openen op de site Projecten'; }
+    else { a.textContent=v?'wijzig':'koppel'; a.onclick=e=>{ e.preventDefault(); const t=document.querySelector('.tab[data-t="'+tab+'"]'); if(t) t.click(); const q=$({obj:'objQ',klant:'klantQ',lev:'levQ',doc:'docQ',map:'mapPlaats'}[tab]); if(q) q.focus(); }; }
+    d.appendChild(a); c.appendChild(d);
+  });
+}
 function renderVervolg(agent){ const c=$('vervolg'); c.innerHTML=''; VERVOLG.forEach(v=>c.appendChild(chip(v,state.vervolg.has(v),(agent||[]).includes(v)?'agent':'',()=>{ state.vervolg.has(v)?state.vervolg.delete(v):state.vervolg.add(v); renderVervolg(agent); }))); }
 function renderSel(id,o,lines,onClear){ const c=$(id); c.innerHTML=''; if(!o){ c.innerHTML='<span class="tiny">Niet gekoppeld</span>'; return; } const d=document.createElement('div'); d.className='sel'; d.innerHTML='<div>'+lines+'</div>'; const x=document.createElement('button'); x.className='x'; x.title='Loskoppelen'; x.textContent='×'; x.onclick=onClear; d.appendChild(x); c.appendChild(d); }
 function renderAll(){
@@ -185,6 +223,7 @@ function renderAll(){
   renderSel('docCur',state.doc,state.doc?'<b>'+esc(DOCLBL[state.doc.soort]||state.doc.soort)+' '+esc(state.doc.nr)+'</b> '+esc(state.doc.naam||'')+'<br><span class="tiny">'+esc(state.doc.extra||'')+'</span>':'',()=>{state.doc=null;renderAll();});
   renderSel('mapCur',state.map,state.map?'<b>Projectmap</b> '+esc(state.map.naam)+'<br><a class="link tiny" target="_blank" href="'+esc(state.map.url)+'">openen</a>':'',()=>{state.map=null;renderAll();});
   if(state.obj&&state.obj.plaats&&!$('mapPlaats').value) $('mapPlaats').value=state.obj.plaats;
+  renderKoppel();
 }
 function resList(id,list,render,onPick,bestIdx){ const res=$(id); res.innerHTML=''; if(!list.length){res.innerHTML='<span class="tiny">Niets gevonden.</span>';return;} list.forEach((o,i)=>{ const b=document.createElement('button'); if(i===bestIdx) b.className='best'; b.innerHTML=render(o); b.onclick=()=>{onPick(o);res.innerHTML='';}; res.appendChild(b); }); }
 async function searchObj(){ const q=$('objQ').value.trim(); if(q.length<2) return; $('objRes').innerHTML='<span class="tiny">Zoeken…</span>'; try{ const list=await api('objecten',{q}); resList('objRes',list,o=>'<b>'+esc(o.objectnr)+'</b> '+esc(o.naam||'')+'<br><span class="tiny">'+esc([o.adres,o.plaats].filter(Boolean).join(', '))+(o.klantnaam?' · '+esc(o.klantnaam):'')+'</span>',o=>{ state.obj=o; state.labels.add('Object'); if(o.klantnr&&!state.klant){ state.klant={nr:o.klantnr,naam:o.klantnaam,extra:'via object'}; } if(o.klantnr){ state.relatie='Klant'; $('relatie').value='Klant'; } $('mapPlaats').value=o.plaats||''; renderAll(); renderLabels(item&&vals(item.Labels)); $('objQ').value=''; if(o.plaats) searchMap(true); }); }catch(e){ $('objRes').innerHTML='<span class="msg err">'+esc(e.message)+'</span>'; } }
