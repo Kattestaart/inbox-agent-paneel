@@ -80,6 +80,8 @@
   .bar{padding:8px 10px}
   .btn{padding:8px}
   .chip.more{border-style:dashed;color:var(--muted)}
+  .ai{display:inline-block;margin-left:6px;font-family:var(--f-mono,monospace);font-size:9.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--red);background:var(--soft);border:1px solid var(--red);border-radius:4px;padding:0 4px;vertical-align:1px}
+  .me{display:inline-block;margin-left:6px;font-size:9.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--steel);background:var(--steel-soft);border-radius:4px;padding:0 4px;vertical-align:1px}
 </style>
 </head>
 <body>
@@ -185,7 +187,7 @@ const clean=s=>String(s==null?'':s).replace(/_x0020_/g,' ');
 const SITE_ALGEMEEN='https://mmhbrandbeveiliging.sharepoint.com/sites/Projecten636/Gedeelde%20documenten/Forms/AllItems.aspx?id=%2Fsites%2FProjecten636%2FGedeelde%20documenten%2FAlgemeen';
 const $=id=>document.getElementById(id);
 let cfg=null, item=null, state=null;
-function blank(){ return {route:'',labels:new Set(),vervolg:new Set(),obj:null,klant:null,lev:null,doc:null,map:null,relatie:'Onbekend',itemId:null,outlookId:null,title:''}; }
+function blank(){ return {src:{},route:'',labels:new Set(),vervolg:new Set(),obj:null,klant:null,lev:null,doc:null,map:null,relatie:'Onbekend',itemId:null,outlookId:null,title:''}; }
 state=blank();
 
 function loadCfg(){ try{ const s=Office.context.roamingSettings.get('inboxAgentCfg'); if(s) cfg=JSON.parse(s); }catch(e){} if(!cfg){ try{ const s=localStorage.getItem('inboxAgentCfg'); if(s) cfg=JSON.parse(s);}catch(e){} } return !!(cfg&&cfg.beslissing&&cfg.objecten&&cfg.opslaan); }
@@ -212,7 +214,8 @@ function renderKoppel(){
   ];
   rows.forEach(([n,v,tab,url])=>{
     const d=document.createElement('div'); d.className='k';
-    d.innerHTML='<span class="n">'+n+'</span><span class="v'+(v?'':' empty')+'">'+(v||'niet gekoppeld')+'</span>';
+    const badge=v?(state.src[tab]==='agent'?'<span class="ai">door agent</span>':'<span class="me">jij</span>'):'';
+    d.innerHTML='<span class="n">'+n+'</span><span class="v'+(v?'':' empty')+'">'+(v||'niet gekoppeld')+badge+'</span>';
     const a=document.createElement('a'); a.href=url||'#';
     if(url){ a.target='_blank'; a.textContent='↗ SharePoint'; a.title='Projectmap openen op de site Projecten'; }
     else { a.textContent=v?'wijzig':'koppel'; a.onclick=e=>{ e.preventDefault(); const t=document.querySelector('.tab[data-t="'+tab+'"]'); if(t) t.click(); const q=$({obj:'objQ',klant:'klantQ',lev:'levQ',doc:'docQ',map:'mapPlaats'}[tab]); if(q) q.focus(); }; }
@@ -232,7 +235,7 @@ function renderAll(){
   renderKoppel(); loadObjectDocs(false);
 }
 function resList(id,list,render,onPick,bestIdx){ const res=$(id); res.innerHTML=''; if(!list.length){res.innerHTML='<span class="tiny">Niets gevonden.</span>';return;} list.forEach((o,i)=>{ const b=document.createElement('button'); if(i===bestIdx) b.className='best'; b.innerHTML=render(o); b.onclick=()=>{onPick(o);res.innerHTML='';}; res.appendChild(b); }); }
-async function searchObj(){ const q=$('objQ').value.trim(); if(q.length<2) return; $('objRes').innerHTML='<span class="tiny">Zoeken…</span>'; try{ const list=await api('objecten',{q}); resList('objRes',list,o=>'<b>'+esc(o.objectnr)+'</b> '+esc(o.naam||'')+'<br><span class="tiny">'+esc([o.adres,o.plaats].filter(Boolean).join(', '))+(o.klantnaam?' · '+esc(o.klantnaam):'')+'</span>',o=>{ state.obj=o; state.labels.add('Object'); if(o.klantnr&&!state.klant){ state.klant={nr:o.klantnr,naam:o.klantnaam,extra:'via object'}; } if(o.klantnr){ state.relatie='Klant'; $('relatie').value='Klant'; } $('mapPlaats').value=o.plaats||''; renderAll(); renderLabels(item&&vals(item.Labels)); $('objQ').value=''; if(o.plaats) searchMap(true); }); }catch(e){ $('objRes').innerHTML='<span class="msg err">'+esc(e.message)+'</span>'; } }
+async function searchObj(){ const q=$('objQ').value.trim(); if(q.length<2) return; $('objRes').innerHTML='<span class="tiny">Zoeken…</span>'; try{ const list=await api('objecten',{q}); resList('objRes',list,o=>'<b>'+esc(o.objectnr)+'</b> '+esc(o.naam||'')+'<br><span class="tiny">'+esc([o.adres,o.plaats].filter(Boolean).join(', '))+(o.klantnaam?' · '+esc(o.klantnaam):'')+'</span>',o=>{ state.obj=o; state.src.obj='jij'; state.labels.add('Object'); if(o.klantnr&&!state.klant){ state.klant={nr:o.klantnr,naam:o.klantnaam,extra:'via object'}; } if(o.klantnr){ state.relatie='Klant'; $('relatie').value='Klant'; } $('mapPlaats').value=o.plaats||''; renderAll(); renderLabels(item&&vals(item.Labels)); $('objQ').value=''; if(o.plaats) searchMap(true); }); }catch(e){ $('objRes').innerHTML='<span class="msg err">'+esc(e.message)+'</span>'; } }
 let docObjLoaded='';
 async function loadObjectDocs(force){
   const c=$('docObj'); const nr=state.obj&&state.obj.objectnr;
@@ -244,12 +247,12 @@ async function loadObjectDocs(force){
     const order={offerte:1,order:2,factuur:3,creditnota:4,project:5,servicecontract:6,serviceorder:7};
     list.sort((a,b)=>(order[a.soort]||9)-(order[b.soort]||9)||String(b.nr).localeCompare(String(a.nr)));
     if(!list.length){ c.innerHTML='<span class="tiny">Geen documenten aan '+esc(nr)+' gekoppeld in BC.</span>'; return; }
-    resList('docObj',list,o=>'<b>'+esc(DOCLBL[o.soort]||o.soort)+' '+esc(o.nr)+'</b> '+esc(clean(o.naam))+'<br><span class="tiny">'+esc(clean(o.extra||''))+'</span>',o=>{ state.doc={...o}; const lab=DOCLABEL[o.soort]; if(lab){state.labels.add(lab); renderLabels(item&&vals(item.Labels));} renderAll(); docObjLoaded=''; loadObjectDocs(true); });
+    resList('docObj',list,o=>'<b>'+esc(DOCLBL[o.soort]||o.soort)+' '+esc(o.nr)+'</b> '+esc(clean(o.naam))+'<br><span class="tiny">'+esc(clean(o.extra||''))+'</span>',o=>{ state.doc={...o}; state.src.doc='jij'; const lab=DOCLABEL[o.soort]; if(lab){state.labels.add(lab); renderLabels(item&&vals(item.Labels));} renderAll(); docObjLoaded=''; loadObjectDocs(true); });
   }catch(e){ c.innerHTML='<span class="msg err">'+esc(e.message)+'</span>'; }
 }
 async function searchBC(soort,qid,rid,onPick){ const q=$(qid).value.trim(); if(q.length<2) return; $(rid).innerHTML='<span class="tiny">Zoeken in BC…</span>'; try{ const list=await api('bczoeken',{soort,q}); resList(rid,list,o=>'<b>'+esc(o.nr)+'</b> '+esc(o.naam||'')+'<br><span class="tiny">'+esc(o.extra||'')+'</span>',o=>{onPick(o);$(qid).value='';renderAll();}); }catch(e){ $(rid).innerHTML='<span class="msg err">'+esc(e.message)+'</span>'; } }
 function scoreMap(naam){ const n=norm(naam); const words=new Set([...norm(state.obj&&state.obj.naam).split(' '),...norm(state.obj&&state.obj.adres).split(' ')].filter(w=>w.length>2&&!['van','der','den','het','een','appartementen','app','bv','b','v'].includes(w))); let s=0; words.forEach(w=>{ if(n.includes(w)) s++; }); return s; }
-async function searchMap(auto){ const plaats=$('mapPlaats').value.trim(); if(!plaats){ $('mapHint').textContent='Vul een plaats in.'; return; } $('mapRes').innerHTML='<span class="tiny">Mappen ophalen…</span>'; try{ let list=await api('projectmap',{plaats}); if(!list.length){ $('mapRes').innerHTML='<span class="tiny">Geen map "Algemeen/'+esc(plaats)+'" op de site Projecten. Bestaat de plaatsmap?</span>'; return; } const scored=list.map(m=>({...m,s:scoreMap(m.naam)})).sort((a,b)=>b.s-a.s); const best=scored[0].s>0?0:-1; $('mapHint').textContent=best>=0?'Beste match staat bovenaan (groen). Klik om te koppelen.':'Geen duidelijke match op naam/adres; kies zelf.'; resList('mapRes',scored,m=>'<b>'+esc(m.naam)+'</b> <span class="tiny">'+(m.s>0?'· match '+m.s:'')+' · '+esc(m.items)+' items</span>',m=>{ state.map=m; renderAll(); },best); if(auto&&best>=0&&scored[0].s>=2&&(scored.length<2||scored[1].s<scored[0].s)){ /* sterke match: alvast koppelen, gebruiker kan loskoppelen */ state.map=scored[0]; renderAll(); } }catch(e){ $('mapRes').innerHTML='<span class="msg err">'+esc(e.message)+'</span>'; } }
+async function searchMap(auto){ const plaats=$('mapPlaats').value.trim(); if(!plaats){ $('mapHint').textContent='Vul een plaats in.'; return; } $('mapRes').innerHTML='<span class="tiny">Mappen ophalen…</span>'; try{ let list=await api('projectmap',{plaats}); if(!list.length){ $('mapRes').innerHTML='<span class="tiny">Geen map "Algemeen/'+esc(plaats)+'" op de site Projecten. Bestaat de plaatsmap?</span>'; return; } const scored=list.map(m=>({...m,s:scoreMap(m.naam)})).sort((a,b)=>b.s-a.s); const best=scored[0].s>0?0:-1; $('mapHint').textContent=best>=0?'Beste match staat bovenaan (groen). Klik om te koppelen.':'Geen duidelijke match op naam/adres; kies zelf.'; resList('mapRes',scored,m=>'<b>'+esc(m.naam)+'</b> <span class="tiny">'+(m.s>0?'· match '+m.s:'')+' · '+esc(m.items)+' items</span>',m=>{ state.map=m; state.src.map='jij'; renderAll(); },best); if(auto&&best>=0&&scored[0].s>=2&&(scored.length<2||scored[1].s<scored[0].s)){ /* sterke match: alvast koppelen, gebruiker kan loskoppelen */ state.map=scored[0]; renderAll(); } }catch(e){ $('mapRes').innerHTML='<span class="msg err">'+esc(e.message)+'</span>'; } }
 
 async function load(){
   $('main').style.display='none'; $('bar').style.display='none';
@@ -269,11 +272,13 @@ async function load(){
     state.klant=item.Klantnr?{nr:item.Klantnr,naam:item.Klantnaam,extra:''}:null;
     state.lev=item.Leveranciernr?{nr:item.Leveranciernr,naam:item.Leveranciernaam,extra:''}:null;
     state.doc=item.Documentnr?{soort:(val(item.Documentsoort)||'').toLowerCase(),nr:item.Documentnr,naam:'',extra:''}:null;
+    ['obj','klant','lev','doc','map'].forEach(k=>state.src[k]='agent');
     state.map=item.Projectmap?{naam:item.Projectmap.split('/').pop(),pad:item.Projectmap,url:'https://mmhbrandbeveiliging.sharepoint.com'+item.Projectmap}:null;
     $('richting').textContent=val(item.Richting)||'–'; $('agentzegt').textContent=(val(item.Route)||'')+' · zekerheid '+(val(item.Zekerheid)||'?')+(item.Gecontroleerd?' · ✓ gecontroleerd':'');
     $('samenvatting').textContent=item.Samenvatting||''; $('todo').innerHTML=item.WatMoetIkDoen?('<b>Te doen:</b> '+esc(item.WatMoetIkDoen)):''; $('vervolgtoel').textContent=(item.VervolgToelichting||'').replace(/\n/g,' · '); $('correctie').value=item.Correctie||'';
     renderRoutes(agentRoute); renderLabels(vals(item.Labels)); renderVervolg(vals(item.Vervolgacties)); renderAll();
-    msg(item.Gecontroleerd?'Al gecontroleerd. Je kunt nog aanpassen.':'','ok');
+    const nk=['Objectnr','Klantnr','Leveranciernr','Documentnr','Projectmap'].filter(f=>item[f]).length;
+    msg(item.Gecontroleerd?'Al gecontroleerd. Je kunt nog aanpassen.':(nk?('De agent stelt '+nk+' koppeling'+(nk>1?'en':'')+' voor. Controleer en klik ✓ Akkoord.'):''),'ok');
     $('main').style.display='grid'; $('bar').style.display='grid'; $('btnOk').disabled=false; $('btnSave').disabled=false;
     if(state.obj&&state.obj.plaats&&!state.map){ searchMap(true); }
   }catch(e){ msg('Fout: '+e.message,'err'); }
@@ -324,8 +329,8 @@ Office.onReady(()=>{
   $('cfgOpen').onclick=e=>{ e.preventDefault(); $('setup').style.display='grid'; $('cfg').value=cfg?JSON.stringify(cfg):''; window.scrollTo(0,0); };
   document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{ document.querySelectorAll('.tab').forEach(x=>x.classList.remove('on')); document.querySelectorAll('.pane').forEach(x=>x.classList.remove('on')); t.classList.add('on'); $('p-'+t.dataset.t).classList.add('on'); });
   $('objGo').onclick=searchObj; $('objQ').addEventListener('keydown',e=>{ if(e.key==='Enter') searchObj(); });
-  $('klantGo').onclick=()=>searchBC('klant','klantQ','klantRes',o=>{state.klant=o; state.relatie='Klant'; $('relatie').value='Klant';}); $('klantQ').addEventListener('keydown',e=>{ if(e.key==='Enter') $('klantGo').onclick(); });
-  $('levGo').onclick=()=>searchBC('leverancier','levQ','levRes',o=>{state.lev=o; state.relatie='Leverancier'; $('relatie').value='Leverancier'; state.labels.add('Leverancier'); renderLabels(item&&vals(item.Labels));}); $('levQ').addEventListener('keydown',e=>{ if(e.key==='Enter') $('levGo').onclick(); });
+  $('klantGo').onclick=()=>searchBC('klant','klantQ','klantRes',o=>{state.klant=o; state.src.klant='jij'; state.relatie='Klant'; $('relatie').value='Klant';}); $('klantQ').addEventListener('keydown',e=>{ if(e.key==='Enter') $('klantGo').onclick(); });
+  $('levGo').onclick=()=>searchBC('leverancier','levQ','levRes',o=>{state.lev=o; state.src.lev='jij'; state.relatie='Leverancier'; $('relatie').value='Leverancier'; state.labels.add('Leverancier'); renderLabels(item&&vals(item.Labels));}); $('levQ').addEventListener('keydown',e=>{ if(e.key==='Enter') $('levGo').onclick(); });
   $('docGo').onclick=()=>{ const s=$('docSoort').value; searchBC(s,'docQ','docRes',o=>{state.doc={...o,soort:s}; const lab=DOCLABEL[s]; if(lab){state.labels.add(lab); renderLabels(item&&vals(item.Labels));}}); }; $('docQ').addEventListener('keydown',e=>{ if(e.key==='Enter') $('docGo').onclick(); });
   $('mapGo').onclick=()=>searchMap(false); $('mapPlaats').addEventListener('keydown',e=>{ if(e.key==='Enter') searchMap(false); });
   $('relatie').onchange=()=>{ state.relatie=$('relatie').value; };
