@@ -308,6 +308,16 @@ function demo(){
   $('main').style.display='grid'; $('bar').style.display='grid'; $('btnOk').onclick=()=>msg('In Outlook zet Akkoord de categorieën, verplaatst de mail en maakt bij route C het conceptantwoord.','ok'); $('btnSave').onclick=$('btnOk').onclick;
 }
 Office.onReady(()=>{
+  // Live-stand buiten Outlook (#live=<base64 json {cfg,mid,subject,fromName,fromMail}>): echte beoordeling ophalen en tonen
+  try{ const m=location.hash.match(/live=([^&]+)/); if(m && (!Office.context||!Office.context.mailbox)){
+    const p=JSON.parse(decodeURIComponent(escape(atob(decodeURIComponent(m[1])))));
+    try{ localStorage.setItem('inboxAgentCfg',JSON.stringify(p.cfg)); }catch(e){}
+    const mem={}; const mb={item:{subject:p.subject||'',itemId:'live',internetMessageId:p.mid,from:{displayName:p.fromName||'',emailAddress:p.fromMail||''}},
+      userProfile:{emailAddress:'henk.kattestaart@dfsg.nl'},convertToRestId:x=>x,addHandlerAsync(){}};
+    Office.context=Object.assign(Office.context||{},{mailbox:mb,roamingSettings:{get:k=>mem[k],set:(k,v)=>{mem[k]=v;},saveAsync(){}}});
+    window.Office.MailboxEnums=window.Office.MailboxEnums||{RestVersion:{v2_0:'v2.0'}};
+    window.Office.EventType=window.Office.EventType||{ItemChanged:'ItemChanged'};
+  } }catch(e){ console.warn('live-stand',e); }
   if(!Office.context||!Office.context.mailbox){ if(/[?&]demo=1/.test(location.search)){ demo(); return; } msg('Dit paneel werkt alleen binnen Outlook. Voeg de invoegtoepassing toe via het manifest en open een mail. Voorbeeld bekijken: voeg ?demo=1 toe aan het adres.','warn'); return; }
   $('who').textContent=(Office.context.mailbox.userProfile&&Office.context.mailbox.userProfile.emailAddress)||'';
   $('cfgSave').onclick=()=>{ try{ const o=JSON.parse($('cfg').value.trim()); if(!o.beslissing||!o.objecten||!o.opslaan) throw 0; saveCfg(o); load(); }catch(e){ msg('Ongeldige configuratie.','err'); } };
