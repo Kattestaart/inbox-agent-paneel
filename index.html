@@ -212,7 +212,7 @@ function renderKoppel(){
     const a=document.createElement('a'); a.href=url||'#';
     if(url){ a.target='_blank'; a.textContent='↗ SharePoint'; a.title='Projectmap openen op de site Projecten'; }
     else { a.textContent=v?'wijzig':'koppel'; a.onclick=e=>{ e.preventDefault(); const t=document.querySelector('.tab[data-t="'+tab+'"]'); if(t) t.click(); const q=$({obj:'objQ',klant:'klantQ',lev:'levQ',doc:'docQ',map:'mapPlaats'}[tab]); if(q) q.focus(); }; }
-    if(tab==='map'&&!url){ const s=document.createElement('a'); s.href=SITE_ALGEMEEN; s.target='_blank'; s.textContent='↗ site'; s.title='Site Projecten, map Algemeen (bladeren per plaats)'; s.style.marginRight='8px'; d.appendChild(s); }
+    if(tab==='map'&&!url){ const pl=(state.obj&&state.obj.plaats)||$('mapPlaats').value.trim(); const s=document.createElement('a'); s.href=SITE_ALGEMEEN+(pl?'%2F'+encodeURIComponent(pl):''); s.target='_blank'; s.textContent=pl?'↗ map '+pl:'↗ site'; s.title=pl?'Site Projecten, map Algemeen/'+pl:'Site Projecten, map Algemeen (bladeren per plaats)'; s.style.marginRight='8px'; d.appendChild(s); }
     d.appendChild(a); c.appendChild(d);
   });
 }
