@@ -80,6 +80,14 @@
   .bar{padding:8px 10px}
   .btn{padding:8px}
   .chip.more{border-style:dashed;color:var(--muted)}
+  .log{display:grid;gap:3px;font-family:var(--f-mono,Consolas,monospace);font-size:11px}
+  .log div{display:grid;grid-template-columns:16px 1fr;gap:6px;align-items:start;opacity:.25;transition:opacity .35s}
+  .log div.on{opacity:1}
+  .log i{font-style:normal;color:var(--muted)} .log div.ok i{color:var(--ok)} .log div.run i{color:var(--red)}
+  .log b{font-weight:600;color:var(--ink)}
+  .live{display:inline-flex;align-items:center;gap:6px;font-size:10.5px;color:var(--ok);font-weight:600}
+  .live::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--ok);box-shadow:0 0 0 0 rgba(46,125,79,.6);animation:pl 1.4s infinite}
+  @keyframes pl{0%{box-shadow:0 0 0 0 rgba(46,125,79,.55)}70%{box-shadow:0 0 0 7px rgba(46,125,79,0)}100%{box-shadow:0 0 0 0 rgba(46,125,79,0)}}
   .ai{display:inline-block;margin-left:6px;font-family:var(--f-mono,monospace);font-size:9.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--red);background:var(--soft);border:1px solid var(--red);border-radius:4px;padding:0 4px;vertical-align:1px}
   .me{display:inline-block;margin-left:6px;font-size:9.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--steel);background:var(--steel-soft);border-radius:4px;padding:0 4px;vertical-align:1px}
 </style>
@@ -106,6 +114,11 @@
       </div>
       <div id="samenvatting" class="muted"></div>
       <div id="todo"></div>
+    </div>
+
+    <div class="card" id="logcard">
+      <div class="lbl">Wat de agent deed <span class="live" id="bclive" hidden>Verbonden met Business Central</span></div>
+      <div class="log" id="log"></div>
     </div>
 
     <div class="card">
@@ -236,6 +249,20 @@ function renderAll(){
 }
 function resList(id,list,render,onPick,bestIdx){ const res=$(id); res.innerHTML=''; if(!list.length){res.innerHTML='<span class="tiny">Niets gevonden.</span>';return;} list.forEach((o,i)=>{ const b=document.createElement('button'); if(i===bestIdx) b.className='best'; b.innerHTML=render(o); b.onclick=()=>{onPick(o);res.innerHTML='';}; res.appendChild(b); }); }
 async function searchObj(){ const q=$('objQ').value.trim(); if(q.length<2) return; $('objRes').innerHTML='<span class="tiny">Zoeken…</span>'; try{ const list=await api('objecten',{q}); resList('objRes',list,o=>'<b>'+esc(o.objectnr)+'</b> '+esc(o.naam||'')+'<br><span class="tiny">'+esc([o.adres,o.plaats].filter(Boolean).join(', '))+(o.klantnaam?' · '+esc(o.klantnaam):'')+'</span>',o=>{ state.obj=o; state.src.obj='jij'; state.labels.add('Object'); if(o.klantnr&&!state.klant){ state.klant={nr:o.klantnr,naam:o.klantnaam,extra:'via object'}; } if(o.klantnr){ state.relatie='Klant'; $('relatie').value='Klant'; } $('mapPlaats').value=o.plaats||''; renderAll(); renderLabels(item&&vals(item.Labels)); $('objQ').value=''; if(o.plaats) searchMap(true); }); }catch(e){ $('objRes').innerHTML='<span class="msg err">'+esc(e.message)+'</span>'; } }
+function runLog(it){
+  const c=$('log'); c.innerHTML='';
+  const steps=[
+    ['Mail en bijlagen gelezen', it.BijlageInhoud?'bijlagen uitgelezen':''],
+    ['Business Central: object gezocht', it.Objectnr?(it.Objectnr+' '+(it.Objectnaam||'')):'geen object'],
+    ['Business Central: klant gekoppeld', it.Klantnr?(it.Klantnr+' '+(it.Klantnaam||'')):''],
+    ['SharePoint: projectmap gevonden', it.Projectmap?it.Projectmap.split('/').pop():''],
+    ['Mailarchief: eerder contact bekeken', 'gesprek en afzender'],
+    ['Route en labels bepaald', (val(it.Route)||'')+' · zekerheid '+(val(it.Zekerheid)||'?')]
+  ].filter(s=>s[1]!=='');
+  steps.forEach((st,i)=>{ const d=document.createElement('div'); d.innerHTML='<i>○</i><span>'+esc(st[0])+(st[1]?' – <b>'+esc(st[1])+'</b>':'')+'</span>'; c.appendChild(d);
+    setTimeout(()=>{ d.classList.add('on','run'); d.querySelector('i').textContent='◔'; },350+i*650);
+    setTimeout(()=>{ d.classList.remove('run'); d.classList.add('ok'); d.querySelector('i').textContent='✓'; },350+i*650+500); });
+}
 let docObjLoaded='';
 async function loadObjectDocs(force){
   const c=$('docObj'); const nr=state.obj&&state.obj.objectnr;
@@ -246,6 +273,7 @@ async function loadObjectDocs(force){
     const list=cfg?await api('bczoeken',{soort:'objectdocs',q:nr}):[{soort:'offerte',nr:'VOF26-0412',naam:'klant 5001188',extra:'Quote · 12 regels',klantnr:'5001188'},{soort:'servicecontract',nr:'SC06201',naam:'Beheer BMI-OAI Ringerskwartier',extra:'Signed · Blom Installatietechniek',klantnr:'5001188'},{soort:'serviceorder',nr:'SOR45790',naam:'Jaarlijks onderhoud 2026',extra:'In Process · 2026-09-12',klantnr:'5001188'}];
     const order={offerte:1,order:2,factuur:3,creditnota:4,project:5,servicecontract:6,serviceorder:7};
     list.sort((a,b)=>(order[a.soort]||9)-(order[b.soort]||9)||String(b.nr).localeCompare(String(a.nr)));
+    if(cfg){ $('bclive').hidden=false; }
     if(!list.length){ c.innerHTML='<span class="tiny">Geen documenten aan '+esc(nr)+' gekoppeld in BC.</span>'; return; }
     resList('docObj',list,o=>'<b>'+esc(DOCLBL[o.soort]||o.soort)+' '+esc(o.nr)+'</b> '+esc(clean(o.naam))+'<br><span class="tiny">'+esc(clean(o.extra||''))+'</span>',o=>{ state.doc={...o}; state.src.doc='jij'; const lab=DOCLABEL[o.soort]; if(lab){state.labels.add(lab); renderLabels(item&&vals(item.Labels));} renderAll(); docObjLoaded=''; loadObjectDocs(true); });
   }catch(e){ c.innerHTML='<span class="msg err">'+esc(e.message)+'</span>'; }
@@ -276,6 +304,7 @@ async function load(){
     state.map=item.Projectmap?{naam:item.Projectmap.split('/').pop(),pad:item.Projectmap,url:'https://mmhbrandbeveiliging.sharepoint.com'+item.Projectmap}:null;
     $('richting').textContent=val(item.Richting)||'–'; $('agentzegt').textContent=(val(item.Route)||'')+' · zekerheid '+(val(item.Zekerheid)||'?')+(item.Gecontroleerd?' · ✓ gecontroleerd':'');
     $('samenvatting').textContent=item.Samenvatting||''; $('todo').innerHTML=item.WatMoetIkDoen?('<b>Te doen:</b> '+esc(item.WatMoetIkDoen)):''; $('vervolgtoel').textContent=(item.VervolgToelichting||'').replace(/\n/g,' · '); $('correctie').value=item.Correctie||'';
+    runLog(item);
     renderRoutes(agentRoute); renderLabels(vals(item.Labels)); renderVervolg(vals(item.Vervolgacties)); renderAll();
     const nk=['Objectnr','Klantnr','Leveranciernr','Documentnr','Projectmap'].filter(f=>item[f]).length;
     msg(item.Gecontroleerd?'Al gecontroleerd. Je kunt nog aanpassen.':(nk?('De agent stelt '+nk+' koppeling'+(nk>1?'en':'')+' voor. Controleer en klik ✓ Akkoord.'):''),'ok');
