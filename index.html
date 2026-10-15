@@ -229,8 +229,27 @@ async function save(akkoord){
   }catch(e){ msg('Opslaan mislukt: '+e.message,'err'); }
   $('btnOk').disabled=false; $('btnSave').disabled=false;
 }
+function demo(){
+  // Voorbeeldweergave buiten Outlook (?demo=1): toont hoe het paneel eruitziet met een echte beslissing.
+  item={ID:0,Route:{Value:'C Beantwoorden'},Zekerheid:{Value:'Hoog'},Richting:{Value:'Inkomend'},Labels:[{Value:'Object'},{Value:'Service/Support'}],Vervolgacties:[{Value:'Taak collega'}],Relatie:{Value:'Klant'},
+    Objectnr:'OBJ002111',Objectnaam:'Ringerskwartier',Adres:'Ringersstraat 10',Plaats:'Alkmaar',Klantnr:'5001188',Klantnaam:'Blom Installatietechniek',Projectmap:'/sites/Projecten636/Gedeelde documenten/Algemeen/Alkmaar/Ringerskwartier',
+    Samenvatting:'Ruud (Blom) vraagt of de meterkasten in het Ringerskwartier volgens het PvE gedetecteerd moeten worden; hij wil dit deze week bevestigd hebben voor de werkvoorbereiding.',
+    WatMoetIkDoen:'Bevestigen aan Ruud of de meterkasten buiten de detectie vallen (PvE §4.2) en Planning informeren.',VervolgToelichting:'Taak collega: Planning laat de monteur de meterkasten overslaan.',Correctie:''};
+  $('who').textContent='henk.kattestaart@dfsg.nl (voorbeeld)'; $('setup').style.display='none';
+  state=blank(); state.title='RE: Ringerskwartier Alkmaar – meterkasten detectie'; $('subject').textContent=state.title; $('from').textContent='Ruud de Jong <ruud@blom-installatie.nl>';
+  state.itemId=0; state.route='C'; state.labels=new Set(vals(item.Labels)); state.vervolg=new Set(vals(item.Vervolgacties)); state.relatie='Klant'; $('relatie').value='Klant';
+  state.obj={objectnr:item.Objectnr,naam:item.Objectnaam,adres:item.Adres,plaats:item.Plaats,klantnr:item.Klantnr,klantnaam:item.Klantnaam};
+  state.klant={nr:item.Klantnr,naam:item.Klantnaam,extra:''}; state.lev=null; state.doc={soort:'offerte',nr:'VOF26-0412',naam:'Uitbreiding BMI Ringerskwartier',extra:'€ 4.850 · open'};
+  state.map={naam:'Ringerskwartier',pad:item.Projectmap,url:'https://mmhbrandbeveiliging.sharepoint.com'+item.Projectmap};
+  $('richting').textContent='Inkomend'; $('agentzegt').textContent='C Beantwoorden · zekerheid Hoog';
+  $('samenvatting').textContent=item.Samenvatting; $('todo').innerHTML='<b>Te doen:</b> '+esc(item.WatMoetIkDoen); $('vervolgtoel').textContent=item.VervolgToelichting;
+  renderRoutes('C'); renderLabels(vals(item.Labels)); renderVervolg(vals(item.Vervolgacties)); renderAll();
+  document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{ document.querySelectorAll('.tab').forEach(x=>x.classList.remove('on')); document.querySelectorAll('.pane').forEach(x=>x.classList.remove('on')); t.classList.add('on'); $('p-'+t.dataset.t).classList.add('on'); });
+  msg('Voorbeeldweergave: zo ziet het paneel eruit naast een geopende mail in Outlook. Knoppen doen hier niets.','ok');
+  $('main').style.display='grid'; $('bar').style.display='grid'; $('btnOk').onclick=()=>msg('In Outlook zet Akkoord de categorieën, verplaatst de mail en maakt bij route C het conceptantwoord.','ok'); $('btnSave').onclick=$('btnOk').onclick;
+}
 Office.onReady(()=>{
-  if(!Office.context||!Office.context.mailbox){ msg('Dit paneel werkt alleen binnen Outlook. Voeg de invoegtoepassing toe via het manifest en open een mail.','warn'); return; }
+  if(!Office.context||!Office.context.mailbox){ if(/[?&]demo=1/.test(location.search)){ demo(); return; } msg('Dit paneel werkt alleen binnen Outlook. Voeg de invoegtoepassing toe via het manifest en open een mail. Voorbeeld bekijken: voeg ?demo=1 toe aan het adres.','warn'); return; }
   $('who').textContent=(Office.context.mailbox.userProfile&&Office.context.mailbox.userProfile.emailAddress)||'';
   $('cfgSave').onclick=()=>{ try{ const o=JSON.parse($('cfg').value.trim()); if(!o.beslissing||!o.objecten||!o.opslaan) throw 0; saveCfg(o); load(); }catch(e){ msg('Ongeldige configuratie.','err'); } };
   $('cfgOpen').onclick=e=>{ e.preventDefault(); $('setup').style.display='grid'; $('cfg').value=cfg?JSON.stringify(cfg):''; window.scrollTo(0,0); };
