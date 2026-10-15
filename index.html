@@ -345,6 +345,7 @@ Office.onReady(()=>{
   // Live-stand buiten Outlook (#live=<base64 json {cfg,mid,subject,fromName,fromMail}>): echte beoordeling ophalen en tonen
   try{ const m=location.hash.match(/live=([^&]+)/); if(m && (!Office.context||!Office.context.mailbox)){
     const p=JSON.parse(decodeURIComponent(escape(atob(decodeURIComponent(m[1])))));
+    document.body.style.maxWidth='400px'; document.body.style.borderRight='1px solid #d1d1d1'; document.body.style.minHeight='100vh'; const bar=document.getElementById('bar'); if(bar) bar.style.width='400px';
     try{ localStorage.setItem('inboxAgentCfg',JSON.stringify(p.cfg)); }catch(e){}
     const mem={}; const mb={item:{subject:p.subject||'',itemId:'live',internetMessageId:p.mid,from:{displayName:p.fromName||'',emailAddress:p.fromMail||''}},
       userProfile:{emailAddress:'henk.kattestaart@dfsg.nl'},convertToRestId:x=>x,addHandlerAsync(){}};
