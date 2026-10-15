@@ -178,6 +178,7 @@ let showAllLabels=false;
 const LABELS=['Object','Service/Support','Techniek/Product','Offerte','Order/Inkoop','Financieel','HR/Personeel','Pilotsafe','Systeem/Melding','Privé','Juridisch/Contract','Leverancier','Planning','Nieuwsbrief/Info','Overig'];
 const VERVOLG=['Agendapunt MT','Taak collega','Opvolgen/wachten op','Deadline/agenda','Verbeterpunt organisatie'];
 const DOCLBL={offerte:'Offerte',order:'Order',factuur:'Factuur',inkooporder:'Inkooporder',inkoopfactuur:'Inkoopfactuur'};
+const SITE_ALGEMEEN='https://mmhbrandbeveiliging.sharepoint.com/sites/Projecten636/Gedeelde%20documenten/Forms/AllItems.aspx?id=%2Fsites%2FProjecten636%2FGedeelde%20documenten%2FAlgemeen';
 const $=id=>document.getElementById(id);
 let cfg=null, item=null, state=null;
 function blank(){ return {route:'',labels:new Set(),vervolg:new Set(),obj:null,klant:null,lev:null,doc:null,map:null,relatie:'Onbekend',itemId:null,outlookId:null,title:''}; }
@@ -211,6 +212,7 @@ function renderKoppel(){
     const a=document.createElement('a'); a.href=url||'#';
     if(url){ a.target='_blank'; a.textContent='↗ SharePoint'; a.title='Projectmap openen op de site Projecten'; }
     else { a.textContent=v?'wijzig':'koppel'; a.onclick=e=>{ e.preventDefault(); const t=document.querySelector('.tab[data-t="'+tab+'"]'); if(t) t.click(); const q=$({obj:'objQ',klant:'klantQ',lev:'levQ',doc:'docQ',map:'mapPlaats'}[tab]); if(q) q.focus(); }; }
+    if(tab==='map'&&!url){ const s=document.createElement('a'); s.href=SITE_ALGEMEEN; s.target='_blank'; s.textContent='↗ site'; s.title='Site Projecten, map Algemeen (bladeren per plaats)'; s.style.marginRight='8px'; d.appendChild(s); }
     d.appendChild(a); c.appendChild(d);
   });
 }
