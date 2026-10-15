@@ -139,6 +139,8 @@
       </div>
       <div class="pane" id="p-doc">
         <div id="docCur"></div>
+        <div class="tiny" id="docHint">Documenten van het gekoppelde object (BC) verschijnen hier vanzelf; zoeken op naam of nummer kan altijd.</div>
+        <div class="res" id="docObj"></div>
         <div class="row"><select id="docSoort"><option value="offerte">Offerte</option><option value="order">Order</option><option value="factuur">Factuur</option><option value="inkooporder">Inkooporder</option><option value="inkoopfactuur">Inkoopfactuur</option></select><input type="text" id="docQ" placeholder="Nummer of klant/leverancier…"><button class="btn sm" id="docGo">Zoek</button></div>
         <div class="res" id="docRes"></div>
       </div>
@@ -177,7 +179,9 @@ const ROUTES=[['A','Archief'],['B','Administratie'],['C','Antwoord'],['D','Beslu
 let showAllLabels=false;
 const LABELS=['Object','Service/Support','Techniek/Product','Offerte','Order/Inkoop','Financieel','HR/Personeel','Pilotsafe','Systeem/Melding','Privé','Juridisch/Contract','Leverancier','Planning','Nieuwsbrief/Info','Overig'];
 const VERVOLG=['Agendapunt MT','Taak collega','Opvolgen/wachten op','Deadline/agenda','Verbeterpunt organisatie'];
-const DOCLBL={offerte:'Offerte',order:'Order',factuur:'Factuur',inkooporder:'Inkooporder',inkoopfactuur:'Inkoopfactuur'};
+const DOCLBL={offerte:'Offerte',order:'Order',factuur:'Factuur',creditnota:'Creditnota',inkooporder:'Inkooporder',inkoopfactuur:'Inkoopfactuur',project:'Project',servicecontract:'Servicecontract',serviceorder:'Serviceorder',verkoop:'Verkoop'};
+const DOCLABEL={offerte:'Offerte',order:'Order/Inkoop',factuur:'Financieel',creditnota:'Financieel',inkooporder:'Order/Inkoop',inkoopfactuur:'Financieel',project:'Object',servicecontract:'Service/Support',serviceorder:'Service/Support'};
+const clean=s=>String(s==null?'':s).replace(/_x0020_/g,' ');
 const SITE_ALGEMEEN='https://mmhbrandbeveiliging.sharepoint.com/sites/Projecten636/Gedeelde%20documenten/Forms/AllItems.aspx?id=%2Fsites%2FProjecten636%2FGedeelde%20documenten%2FAlgemeen';
 const $=id=>document.getElementById(id);
 let cfg=null, item=null, state=null;
@@ -225,10 +229,24 @@ function renderAll(){
   renderSel('docCur',state.doc,state.doc?'<b>'+esc(DOCLBL[state.doc.soort]||state.doc.soort)+' '+esc(state.doc.nr)+'</b> '+esc(state.doc.naam||'')+'<br><span class="tiny">'+esc(state.doc.extra||'')+'</span>':'',()=>{state.doc=null;renderAll();});
   renderSel('mapCur',state.map,state.map?'<b>Projectmap</b> '+esc(state.map.naam)+'<br><a class="link tiny" target="_blank" href="'+esc(state.map.url)+'">openen</a>':'',()=>{state.map=null;renderAll();});
   if(state.obj&&state.obj.plaats&&!$('mapPlaats').value) $('mapPlaats').value=state.obj.plaats;
-  renderKoppel();
+  renderKoppel(); loadObjectDocs(false);
 }
 function resList(id,list,render,onPick,bestIdx){ const res=$(id); res.innerHTML=''; if(!list.length){res.innerHTML='<span class="tiny">Niets gevonden.</span>';return;} list.forEach((o,i)=>{ const b=document.createElement('button'); if(i===bestIdx) b.className='best'; b.innerHTML=render(o); b.onclick=()=>{onPick(o);res.innerHTML='';}; res.appendChild(b); }); }
 async function searchObj(){ const q=$('objQ').value.trim(); if(q.length<2) return; $('objRes').innerHTML='<span class="tiny">Zoeken…</span>'; try{ const list=await api('objecten',{q}); resList('objRes',list,o=>'<b>'+esc(o.objectnr)+'</b> '+esc(o.naam||'')+'<br><span class="tiny">'+esc([o.adres,o.plaats].filter(Boolean).join(', '))+(o.klantnaam?' · '+esc(o.klantnaam):'')+'</span>',o=>{ state.obj=o; state.labels.add('Object'); if(o.klantnr&&!state.klant){ state.klant={nr:o.klantnr,naam:o.klantnaam,extra:'via object'}; } if(o.klantnr){ state.relatie='Klant'; $('relatie').value='Klant'; } $('mapPlaats').value=o.plaats||''; renderAll(); renderLabels(item&&vals(item.Labels)); $('objQ').value=''; if(o.plaats) searchMap(true); }); }catch(e){ $('objRes').innerHTML='<span class="msg err">'+esc(e.message)+'</span>'; } }
+let docObjLoaded='';
+async function loadObjectDocs(force){
+  const c=$('docObj'); const nr=state.obj&&state.obj.objectnr;
+  if(!nr){ c.innerHTML=''; docObjLoaded=''; return; }
+  if(!force&&docObjLoaded===nr) return;
+  docObjLoaded=nr; c.innerHTML='<span class="tiny">Documenten van '+esc(nr)+' ophalen uit BC…</span>';
+  try{
+    const list=cfg?await api('bczoeken',{soort:'objectdocs',q:nr}):[{soort:'offerte',nr:'VOF26-0412',naam:'klant 5001188',extra:'Quote · 12 regels',klantnr:'5001188'},{soort:'servicecontract',nr:'SC06201',naam:'Beheer BMI-OAI Ringerskwartier',extra:'Signed · Blom Installatietechniek',klantnr:'5001188'},{soort:'serviceorder',nr:'SOR45790',naam:'Jaarlijks onderhoud 2026',extra:'In Process · 2026-09-12',klantnr:'5001188'}];
+    const order={offerte:1,order:2,factuur:3,creditnota:4,project:5,servicecontract:6,serviceorder:7};
+    list.sort((a,b)=>(order[a.soort]||9)-(order[b.soort]||9)||String(b.nr).localeCompare(String(a.nr)));
+    if(!list.length){ c.innerHTML='<span class="tiny">Geen documenten aan '+esc(nr)+' gekoppeld in BC.</span>'; return; }
+    resList('docObj',list,o=>'<b>'+esc(DOCLBL[o.soort]||o.soort)+' '+esc(o.nr)+'</b> '+esc(clean(o.naam))+'<br><span class="tiny">'+esc(clean(o.extra||''))+'</span>',o=>{ state.doc={...o}; const lab=DOCLABEL[o.soort]; if(lab){state.labels.add(lab); renderLabels(item&&vals(item.Labels));} renderAll(); docObjLoaded=''; loadObjectDocs(true); });
+  }catch(e){ c.innerHTML='<span class="msg err">'+esc(e.message)+'</span>'; }
+}
 async function searchBC(soort,qid,rid,onPick){ const q=$(qid).value.trim(); if(q.length<2) return; $(rid).innerHTML='<span class="tiny">Zoeken in BC…</span>'; try{ const list=await api('bczoeken',{soort,q}); resList(rid,list,o=>'<b>'+esc(o.nr)+'</b> '+esc(o.naam||'')+'<br><span class="tiny">'+esc(o.extra||'')+'</span>',o=>{onPick(o);$(qid).value='';renderAll();}); }catch(e){ $(rid).innerHTML='<span class="msg err">'+esc(e.message)+'</span>'; } }
 function scoreMap(naam){ const n=norm(naam); const words=new Set([...norm(state.obj&&state.obj.naam).split(' '),...norm(state.obj&&state.obj.adres).split(' ')].filter(w=>w.length>2&&!['van','der','den','het','een','appartementen','app','bv','b','v'].includes(w))); let s=0; words.forEach(w=>{ if(n.includes(w)) s++; }); return s; }
 async function searchMap(auto){ const plaats=$('mapPlaats').value.trim(); if(!plaats){ $('mapHint').textContent='Vul een plaats in.'; return; } $('mapRes').innerHTML='<span class="tiny">Mappen ophalen…</span>'; try{ let list=await api('projectmap',{plaats}); if(!list.length){ $('mapRes').innerHTML='<span class="tiny">Geen map "Algemeen/'+esc(plaats)+'" op de site Projecten. Bestaat de plaatsmap?</span>'; return; } const scored=list.map(m=>({...m,s:scoreMap(m.naam)})).sort((a,b)=>b.s-a.s); const best=scored[0].s>0?0:-1; $('mapHint').textContent=best>=0?'Beste match staat bovenaan (groen). Klik om te koppelen.':'Geen duidelijke match op naam/adres; kies zelf.'; resList('mapRes',scored,m=>'<b>'+esc(m.naam)+'</b> <span class="tiny">'+(m.s>0?'· match '+m.s:'')+' · '+esc(m.items)+' items</span>',m=>{ state.map=m; renderAll(); },best); if(auto&&best>=0&&scored[0].s>=2&&(scored.length<2||scored[1].s<scored[0].s)){ /* sterke match: alvast koppelen, gebruiker kan loskoppelen */ state.map=scored[0]; renderAll(); } }catch(e){ $('mapRes').innerHTML='<span class="msg err">'+esc(e.message)+'</span>'; } }
@@ -298,7 +316,7 @@ Office.onReady(()=>{
   $('objGo').onclick=searchObj; $('objQ').addEventListener('keydown',e=>{ if(e.key==='Enter') searchObj(); });
   $('klantGo').onclick=()=>searchBC('klant','klantQ','klantRes',o=>{state.klant=o; state.relatie='Klant'; $('relatie').value='Klant';}); $('klantQ').addEventListener('keydown',e=>{ if(e.key==='Enter') $('klantGo').onclick(); });
   $('levGo').onclick=()=>searchBC('leverancier','levQ','levRes',o=>{state.lev=o; state.relatie='Leverancier'; $('relatie').value='Leverancier'; state.labels.add('Leverancier'); renderLabels(item&&vals(item.Labels));}); $('levQ').addEventListener('keydown',e=>{ if(e.key==='Enter') $('levGo').onclick(); });
-  $('docGo').onclick=()=>{ const s=$('docSoort').value; searchBC(s,'docQ','docRes',o=>{state.doc={...o,soort:s}; const lab={offerte:'Offerte',order:'Order/Inkoop',factuur:'Financieel',inkooporder:'Order/Inkoop',inkoopfactuur:'Financieel'}[s]; if(lab){state.labels.add(lab); renderLabels(item&&vals(item.Labels));}}); }; $('docQ').addEventListener('keydown',e=>{ if(e.key==='Enter') $('docGo').onclick(); });
+  $('docGo').onclick=()=>{ const s=$('docSoort').value; searchBC(s,'docQ','docRes',o=>{state.doc={...o,soort:s}; const lab=DOCLABEL[s]; if(lab){state.labels.add(lab); renderLabels(item&&vals(item.Labels));}}); }; $('docQ').addEventListener('keydown',e=>{ if(e.key==='Enter') $('docGo').onclick(); });
   $('mapGo').onclick=()=>searchMap(false); $('mapPlaats').addEventListener('keydown',e=>{ if(e.key==='Enter') searchMap(false); });
   $('relatie').onchange=()=>{ state.relatie=$('relatie').value; };
   $('btnOk').onclick=()=>save(true); $('btnSave').onclick=()=>save(false);
