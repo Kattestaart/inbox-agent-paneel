@@ -218,9 +218,40 @@
   #routeUitleg{background:#fafafa;border:1px dashed var(--f-stroke2);border-radius:4px;padding:6px 8px}
   .afspraak{display:inline-block;font-size:11px;border-radius:4px;padding:1px 6px;background:var(--ok-soft);color:var(--ok);margin-left:4px}
   .bundel{display:flex;gap:8px;align-items:center;justify-content:space-between;background:var(--ok-soft);border:1px solid #9fd89f;border-radius:8px;padding:10px 12px}
+  /* Webversie: originele mail links, paneel rechts (zelfde gevoel als Outlook-leesvenster) */
+  #lezer{display:none}
+  body.web.lees{max-width:none;margin:0;display:grid;grid-template-columns:minmax(0,1fr) 540px;border:0;background:#f5f5f5;min-height:100vh}
+  body.web.lees #lezer{display:flex;flex-direction:column;height:100vh;position:sticky;top:0;background:#fff;border-right:1px solid var(--f-stroke);min-width:0}
+  body.web.lees #app{background:var(--f-bg);min-width:0;padding-bottom:90px}
+  body.web.lees .bar{left:auto;right:0;transform:none;width:540px}
+  .lz-kop{padding:16px 20px 12px;border-bottom:1px solid var(--f-stroke);display:grid;gap:6px}
+  .lz-ond{font-size:20px;line-height:26px;font-weight:600;color:var(--f-text);overflow-wrap:anywhere}
+  .lz-meta{display:grid;grid-template-columns:auto 1fr;gap:2px 10px;font-size:13px;color:var(--f-text2)}
+  .lz-meta b{font-weight:600;color:var(--f-text)}
+  .lz-meta span{overflow-wrap:anywhere}
+  .lz-bijl{display:flex;flex-wrap:wrap;gap:6px;padding:10px 20px;border-bottom:1px solid var(--f-stroke);background:#fafafa}
+  .lz-bijl:empty{display:none}
+  .lz-b{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--f-stroke2);background:#fff;border-radius:4px;padding:5px 10px;font:inherit;font-size:13px;cursor:pointer;max-width:100%}
+  .lz-b:hover{border-color:var(--brand)} .lz-b.on{border-color:var(--brand);box-shadow:inset 0 -2px 0 var(--brand)}
+  .lz-b small{color:var(--f-text2)} .lz-b .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:320px}
+  .lz-tabs{display:flex;gap:4px;padding:0 20px;border-bottom:1px solid var(--f-stroke)}
+  .lz-tabs button{border:0;background:none;font:inherit;font-size:13px;padding:8px 10px;cursor:pointer;border-bottom:2px solid transparent;color:var(--f-text2)}
+  .lz-tabs button.on{border-bottom-color:var(--brand);color:var(--f-text);font-weight:600}
+  .lz-tabs a{margin-left:auto;align-self:center;font-size:13px}
+  #lzInhoud{flex:1;min-height:0;position:relative}
+  #lzInhoud iframe,#lzInhoud img{width:100%;height:100%;border:0;display:block;background:#fff}
+  #lzInhoud img{object-fit:contain;background:#f5f5f5}
+  .lz-leeg{padding:24px;color:var(--f-text2);font-size:14px}
+  @media (max-width:1000px){ body.web.lees{grid-template-columns:1fr} body.web.lees #lezer{position:static;height:70vh} body.web.lees .bar{width:100%} }
 </style>
 </head>
 <body>
+<aside id="lezer" aria-label="Originele mail">
+  <div class="lz-kop"><div class="lz-ond" id="lzOnd"></div><div class="lz-meta" id="lzMeta"></div></div>
+  <div class="lz-bijl" id="lzBijl"></div>
+  <div class="lz-tabs" id="lzTabs"></div>
+  <div id="lzInhoud"><div class="lz-leeg">Mail ophalen…</div></div>
+</aside>
 <div class="wrap" id="app">
   <h1><span class="dot"></span>Inbox Agent <span class="tiny" id="who"></span></h1>
 
@@ -655,6 +686,7 @@ function newLabelChip(onAdded){
   wrap.appendChild(c); return wrap;
 }
 async function showWerklijst(melding){
+  verbergMail();
   Office.context.mailbox.item=null; item=null; state=blank(); state.mode='inkomend';
   $('main').style.display='none'; $('bar').style.display='none'; $('webNav').hidden=true;
   if(view!=='agent') return;
@@ -683,13 +715,77 @@ async function showWerklijst(melding){
     if(klaar.length){ const h=document.createElement('div'); h.className='wl-kop'; h.textContent='Recent doorgezet'; c.appendChild(h); klaar.forEach(x=>c.appendChild(rij(x))); }
   }catch(e){ $('wlInfo').textContent=''; $('wlRes').innerHTML='<div class="msg err">'+esc(e.message)+'</div>'; }
 }
+/* ---------- Leesvenster (alleen webversie): originele mail + bijlagen ---------- */
+const lz={mid:'',mail:null,bijl:[],urls:[],actief:'mail'};
+function lzOpruimen(){ lz.urls.forEach(u=>{ try{ URL.revokeObjectURL(u); }catch(e){} }); lz.urls=[]; }
+function verbergMail(){ document.body.classList.remove('lees'); lz.mid=''; lzOpruimen(); }
+function lzAdres(a){ const e=a&&a.emailAddress||{}; return e.name&&e.address&&e.name!==e.address?e.name+' <'+e.address+'>':(e.address||e.name||''); }
+function lzGrootte(n){ n=+n||0; return n>1048576?(n/1048576).toFixed(1).replace('.',',')+' MB':Math.max(1,Math.round(n/1024))+' kB'; }
+function lzToon(wat){
+  lz.actief=wat; const c=$('lzInhoud'); c.innerHTML='';
+  document.querySelectorAll('#lzTabs button').forEach(b=>b.classList.toggle('on',b.dataset.k===wat));
+  document.querySelectorAll('#lzBijl .lz-b').forEach(b=>b.classList.toggle('on',b.dataset.k===wat));
+  if(wat==='mail'){
+    const m=lz.mail; if(!m){ c.innerHTML='<div class="lz-leeg">Geen inhoud.</div>'; return; }
+    const html=(m.body&&m.body.contentType==='html')?m.body.content:'<pre style="white-space:pre-wrap;font:14px/1.5 Segoe UI,sans-serif">'+esc(m.body&&m.body.content||'')+'</pre>';
+    const f=document.createElement('iframe'); f.title='Mailinhoud';
+    f.setAttribute('sandbox','allow-popups allow-popups-to-escape-sandbox allow-same-origin');
+    f.srcdoc='<!doctype html><meta charset="utf-8"><base target="_blank"><style>body{font:14px/1.5 "Segoe UI",system-ui,sans-serif;color:#242424;margin:16px 20px;overflow-wrap:anywhere}img[src^="cid:"]{display:none}img{max-width:100%;height:auto}table{max-width:100%}</style>'+html;
+    c.appendChild(f); return;
+  }
+  const b=lz.bijl.find(x=>x.id===wat); if(!b) return;
+  c.innerHTML='<div class="lz-leeg">'+esc(b.name)+' ophalen…</div>';
+  (async()=>{
+    try{
+      if(!b.url){ const r=await api('mail',{messageId:lz.mid,bijlage:b.id}); if(!r.ok||!r.inhoud) throw new Error('bijlage niet gevonden');
+        const bin=atob(r.inhoud); const u8=new Uint8Array(bin.length); for(let i=0;i<bin.length;i++) u8[i]=bin.charCodeAt(i);
+        const nm=(b.name||'').toLowerCase(); let type=r.type||b.contentType||'application/octet-stream';
+        if(nm.endsWith('.pdf')) type='application/pdf'; else if(/\.(png)$/.test(nm)) type='image/png'; else if(/\.(jpe?g)$/.test(nm)) type='image/jpeg'; else if(/\.(gif)$/.test(nm)) type='image/gif';
+        b.type=type; b.url=URL.createObjectURL(new Blob([u8],{type})); lz.urls.push(b.url); }
+      if(lz.actief!==wat) return; c.innerHTML='';
+      if(b.type==='application/pdf'){ const f=document.createElement('iframe'); f.title=b.name; f.src=b.url; c.appendChild(f); }
+      else if(/^image\//.test(b.type)){ const i=document.createElement('img'); i.alt=b.name; i.src=b.url; c.appendChild(i); }
+      else { c.innerHTML='<div class="lz-leeg">Dit bestand kan de browser niet tonen. <a class="link" download="'+esc(b.name)+'" href="'+b.url+'">'+esc(b.name)+' downloaden</a></div>'; }
+      const t=$('lzTabs').querySelector('a'); if(t){ t.href=b.url; t.setAttribute('download',b.name); t.textContent='↓ '+b.name; t.hidden=false; }
+    }catch(e){ c.innerHTML='<div class="lz-leeg">Bijlage openen mislukt: '+esc(e.message)+'</div>'; }
+  })();
+  return;
+}
+function lzTabs(){
+  const t=$('lzTabs'); t.innerHTML='';
+  const k=document.createElement('button'); k.dataset.k='mail'; k.textContent='Bericht'; k.onclick=()=>{ lzToon('mail'); const a=t.querySelector('a'); if(a) a.hidden=true; }; t.appendChild(k);
+  const a=document.createElement('a'); a.className='link'; a.hidden=true; t.appendChild(a);
+}
+async function toonMail(mid,kop){
+  if(!WEB||DEMO) return;
+  lzOpruimen(); lz.mid=mid||''; lz.mail=null; lz.bijl=[]; document.body.classList.add('lees');
+  $('lzOnd').textContent=(kop&&kop.onderwerp)||''; $('lzMeta').innerHTML=kop&&kop.van?'<b>Van</b><span>'+esc(kop.van)+'</span>':''; $('lzBijl').innerHTML=''; lzTabs();
+  if(!mid){ $('lzInhoud').innerHTML='<div class="lz-leeg">Geen Message-ID bekend; de mail kan niet worden opgehaald.</div>'; return; }
+  if(!cfg||!cfg.mail){ $('lzInhoud').innerHTML='<div class="lz-leeg">De mailweergave mist in je configuratie (sleutel "mail"). Plak de nieuwste configuratie via Instellingen.</div>'; return; }
+  $('lzInhoud').innerHTML='<div class="lz-leeg">Mail ophalen uit je mailbox…</div>';
+  try{
+    const r=await api('mail',{messageId:mid}); if(lz.mid!==mid) return;
+    if(!r.ok||!r.mail){ $('lzInhoud').innerHTML='<div class="lz-leeg">Deze mail staat niet (meer) in je mailbox. In het archief staat hij als PDF.</div>'; return; }
+    const m=r.mail; lz.mail=m;
+    $('lzOnd').textContent=m.subject||'(geen onderwerp)';
+    const aan=(m.toRecipients||[]).map(lzAdres).join('; '), cc=(m.ccRecipients||[]).map(lzAdres).join('; ');
+    $('lzMeta').innerHTML='<b>Van</b><span>'+esc(lzAdres(m.from))+'</span>'+(aan?'<b>Aan</b><span>'+esc(aan)+'</span>':'')+(cc?'<b>CC</b><span>'+esc(cc)+'</span>':'')+'<b>Datum</b><span>'+esc(fmtD(m.receivedDateTime||m.sentDateTime))+'</span>';
+    lz.bijl=(r.bijlagen||[]).filter(b=>!b.isInline);
+    const bc=$('lzBijl'); bc.innerHTML='';
+    lz.bijl.forEach(b=>{ const x=document.createElement('button'); x.className='lz-b'; x.dataset.k=b.id; x.title=b.name+' bekijken';
+      x.innerHTML='<svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M13.5 6.5 7.8 12.2a1.6 1.6 0 0 0 2.3 2.3l6-6a3.2 3.2 0 0 0-4.5-4.5l-6.2 6.2a4.8 4.8 0 0 0 6.8 6.8l5-5"/></svg><span class="nm">'+esc(b.name)+'</span><small>'+lzGrootte(b.size)+'</small>';
+      x.onclick=()=>lzToon(b.id); bc.appendChild(x); });
+    lzToon('mail');
+  }catch(e){ if(lz.mid===mid) $('lzInhoud').innerHTML='<div class="lz-leeg">Mail ophalen mislukt: '+esc(e.message)+'</div>'; }
+}
 function openWeb(x){
   window.__wlItem=x;
   Office.context.mailbox.item={subject:x.onderwerp||'',itemId:'',internetMessageId:x.messageId||'',from:{displayName:x.van||'',emailAddress:x.van||''},to:[]};
   $('werklijst').style.display='none'; $('webNav').hidden=false; window.scrollTo(0,0); load();
+  toonMail(x.messageId,{onderwerp:x.onderwerp,van:x.van});
 }
 function setView(v){
-  $('routesView').style.display='none';
+  $('routesView').style.display='none'; if(v!=='agent'||!WEB||!Office.context.mailbox.item) verbergMail();
   if(v==='routes'){ view=v; document.querySelectorAll('.vt').forEach(t=>{ t.classList.toggle('on',t.dataset.v===v); t.setAttribute('aria-selected',t.dataset.v===v?'true':'false'); }); $('archief').style.display='none'; $('werklijst').style.display='none'; $('webNav').hidden=true; $('main').style.display='none'; $('bar').style.display='none'; showRoutes(); return; }
   view=v; document.querySelectorAll('.vt').forEach(t=>{ t.classList.toggle('on',t.dataset.v===v); t.setAttribute('aria-selected',t.dataset.v===v?'true':'false'); });
   const ag=v==='agent';
@@ -739,7 +835,8 @@ function renderArchief(){
     const acts=document.createElement('div'); acts.className='acts';
     if(m.outlook){ const a=document.createElement('a'); a.href=m.outlook; a.target='_blank'; a.textContent='↗ Outlook'; a.title='Origineel openen (beantwoorden/doorsturen)'; acts.appendChild(a); }
     if(m.pdf){ const a=document.createElement('a'); a.href=m.pdf; a.target='_blank'; a.textContent='↗ PDF'; a.title='Mail met bijlagen in het archief'; acts.appendChild(a); }
-    const e=document.createElement('a'); e.textContent='✎ Wijzig / herkennen'; e.onclick=()=>openArchiefMail(m); acts.appendChild(e);
+    const e=document.createElement('a'); e.textContent=WEB?'✎ Openen / wijzigen':'✎ Wijzig / herkennen'; e.onclick=()=>openArchiefMail(m); acts.appendChild(e);
+    if(WEB){ d.classList.add('klik'); d.tabIndex=0; d.onclick=ev=>{ if(ev.target.closest('a')) return; openArchiefMail(m); }; d.onkeydown=ev=>{ if(ev.key==='Enter') openArchiefMail(m); }; }
     d.appendChild(acts);
     c.appendChild(d);
   });
@@ -766,8 +863,9 @@ function openArchiefMail(m){
   renderLabels([]); renderVervolg([]); renderAll();
   $('archief').style.display='none'; setMode('archiefmail','Wijzigingen gaan direct naar het archief. Inkomende mail staat los hiervan.');
   msg('','ok'); $('btnOk').disabled=false; $('btnSave').disabled=false; $('main').style.display='grid'; $('bar').style.display='grid'; window.scrollTo(0,0);
+  toonMail(m.messageId,{onderwerp:m.onderwerp,van:m.van});
 }
-function terugNaarArchief(){ state=blank(); $('main').style.display='none'; $('bar').style.display='none'; $('archief').style.display='grid'; setMode('archief','Zoek en corrigeer gearchiveerde mail. Klik ✎ om een mail te openen.'); renderArchief(); }
+function terugNaarArchief(){ verbergMail(); state=blank(); $('main').style.display='none'; $('bar').style.display='none'; $('archief').style.display='grid'; setMode('archief','Zoek en corrigeer gearchiveerde mail. Klik ✎ om een mail te openen.'); renderArchief(); }
 async function herkenInbox(e){
   if(e) e.preventDefault(); if(state.mode!=='inkomend'||!item) return;
   const it=Office.context.mailbox.item; const mid=it&&it.internetMessageId; if(!mid&&!DEMO){ msg('Geen Message-ID beschikbaar.','warn'); return; }
