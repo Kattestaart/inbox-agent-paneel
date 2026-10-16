@@ -608,11 +608,14 @@ function agentOverzicht(){
     ['3 · Route','ROUTES'],
     ['4 · Verzenden (mens)','Jij leest en verstuurt het concept'],
     ['5 · Archief','Verzonden → archief · Archiveer mail · CENTRALE herkent nieuwe archiefmail · Leerflow (labels/objecten uit correcties)']];
-  const MB=[['Henk.Kattestaart','Pilot · testfase via INBOX Agent','alle agents'],['Administratie@','Ontwerp klaar','gepland: CENTRALE + route debiteuren/crediteuren'],['Support@','Gepland','gepland'],['Info@','Gepland','gepland']];
+  const MB=[['Henk.Kattestaart','Pilot · testfase via INBOX Agent',null],
+    ['Administratie@','Ontwerp klaar · nog niet live',['CENTRALE (zelfde bouwsteen)','Medewerker administratie','Debiteuren/crediteuren: doorstuur- en antwoordconcepten (ontwerp)','Medewerker administratie','Archief + CENTRALE + leerflow']],
+    ['Support@','Gepland',['CENTRALE (zelfde bouwsteen)','Medewerker support','Nog te kiezen bij de bouw (bijv. INSPECTEUR, ZOEKER)','Medewerker support','Archief + CENTRALE + leerflow']],
+    ['Info@','Gepland',['CENTRALE (zelfde bouwsteen)','Medewerker','Nog te kiezen bij de bouw','Medewerker','Archief + CENTRALE + leerflow']]];
   const c=document.createElement('div'); c.className='card';
   let h='<div class="lbl">Agents per mailbox en fase</div><div class="tiny">Elke agent is een losse bouwsteen. De mailbox van Henk gebruikt ze allemaal; andere mailboxen krijgen alleen de agents die ze nodig hebben. De routefase komt live uit de routes hieronder.</div>';
   h+='<div style="overflow-x:auto"><table class="ov"><thead><tr><th>Fase</th>'+MB.map(m=>'<th>'+esc(m[0])+'<br><span class="tiny">'+esc(m[1])+'</span></th>').join('')+'</tr></thead><tbody>';
-  F.forEach(([f,t])=>{ h+='<tr><td><b>'+f+'</b></td>'+MB.map((m,i)=>'<td>'+(i===0?(t==='ROUTES'?(routeAg||'-'):t):'<span class="tiny">'+esc(i===1&&f.startsWith('1')?'CENTRALE (zelfde bouwsteen)':m[2])+'</span>')+'</td>').join('')+'</tr>'; });
+  F.forEach(([f,t],fi)=>{ h+='<tr><td><b>'+f+'</b></td>'+MB.map((m,i)=>'<td>'+(i===0?(t==='ROUTES'?(routeAg||'-'):t):'<span class="tiny">'+esc(m[2][fi])+'</span>')+'</td>').join('')+'</tr>'; });
   h+='</tbody></table></div>'; c.innerHTML=h; return c;
 }
 async function showRoutes(){
@@ -892,7 +895,7 @@ function openArchiefMail(m){
   $('werklijst').style.display='none'; $('webNav').hidden=true;
   state=blank(); state.mode='archief'; state.arc=m; item=null;
   const it2={Labels:m.labels,Objectnr:m.objectnr,Objectnaam:m.objectnaam,Adres:m.adres,Plaats:m.plaats,Postcode:m.postcode,Klantnr:m.klantnr,Klantnaam:m.klant,Leveranciernr:m.leveranciernr,Leveranciernaam:m.leveranciernaam,Documentnr:m.documentnr,Documentsoort:m.documentsoort,Projectmap:m.projectmap,Route:m.route||'',Relatie:m.relatie||'',Samenvatting:m.samenvatting||'',WatMoetIkDoen:m.watmoetikdoen||'',Vervolgacties:String(m.vervolgacties||'').split(',').map(x=>x.trim()).filter(Boolean),Zekerheid:val(m.zekerheid)};
-  fillFromItem(it2); ['obj','klant','lev','doc','map'].forEach(k=>state.src[k]='jij');
+  fillFromItem(it2); const doorAgent=/^CENTRALE|^BC|^Inbox Agent/.test(String(m.koppelbron||'')); ['obj','klant','lev','doc','map'].forEach(k=>state.src[k]=doorAgent?'agent':'jij');
   $('subject').textContent=m.onderwerp||'(geen onderwerp)'; $('from').textContent=(m.van||'')+(m.datum?' · '+fmtD(m.datum):'');
   $('agentzegt').textContent='gearchiveerd'+(m.koppelbron?' · '+m.koppelbron:''); $('richting').textContent=val(m.richting)||'–';
   $('correctie').value=''; $('mapPlaats').value=m.plaats||''; state.route=String(m.route||'').charAt(0); $('leerAan').checked=false; $('leerInstructie').value=''; $('afspraakInfo').innerHTML=''; runLog(it2);
