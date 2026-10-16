@@ -202,6 +202,12 @@
   /* toegankelijkheid */
   .btn:focus-visible,.chip:focus-visible,.vt:focus-visible,.tab:focus-visible,a:focus-visible{outline:2px solid #000;outline-offset:1px;box-shadow:0 0 0 4px #fff}
   @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+  .wl-kop{font-size:12px;font-weight:600;color:var(--f-text2);margin:6px 2px 0}
+  .arc.klik{cursor:pointer} .arc.klik:hover{border-color:var(--brand)}
+  .wl-route{font-size:12px;font-weight:600;color:var(--brand)}
+  #webNav{font-size:13px}
+  body.web{max-width:520px;margin:0 auto;min-height:100vh;border-left:1px solid var(--f-stroke);border-right:1px solid var(--f-stroke);background:var(--f-bg)}
+  body.web .bar{left:50%;right:auto;transform:translateX(-50%);width:min(520px,100%)}
 </style>
 </head>
 <body>
@@ -244,6 +250,9 @@
     <div class="arclist" id="arcRes"></div>
     <div class="tiny">Klopt een label of object niet? Klik <b>Wijzig</b>. Elke correctie komt in de lijst <i>Labelcorrecties</i>; daar leert het archief van (zelfde afzender = zelfde labels, zelfde gesprek = zelfde object).</div>
   </div>
+
+  <div id="werklijst" style="display:none;gap:8px"></div>
+  <div id="webNav" hidden><a class="link" href="#" id="webTerug">← Terug naar de werklijst</a></div>
 
   <div id="main" style="display:none;gap:10px" class="wrap">
     <div class="card">
@@ -351,7 +360,7 @@ state=blank();
 
 function loadCfg(){ try{ const s=Office.context.roamingSettings.get('inboxAgentCfg'); if(s) cfg=JSON.parse(s); }catch(e){} if(!cfg){ try{ const s=localStorage.getItem('inboxAgentCfg'); if(s) cfg=JSON.parse(s);}catch(e){} } return !!(cfg&&cfg.beslissing&&cfg.objecten&&cfg.opslaan); }
 function saveCfg(obj){ cfg=obj; try{ Office.context.roamingSettings.set('inboxAgentCfg',JSON.stringify(obj)); Office.context.roamingSettings.saveAsync(()=>{}); }catch(e){} try{ localStorage.setItem('inboxAgentCfg',JSON.stringify(obj)); }catch(e){} }
-let DEMO=false;
+let DEMO=false; let WEB=false;
 const DOORZETTEN_ACTIEF=true; /* aan zetten zodra Agent-API Opslaan de doorzetten-vlag kent */
 function demoApi(name,body){ const base=[
   {id:357,datum:'2026-10-14T19:47:59Z',van:'henk.kattestaart@dfsg.nl',onderwerp:'RE: Projectofferte 20250129 – Student Experience Amstelveen 2025',objectnr:'OBJ001180',objectnaam:'Student Experience Amstelveen 2025',labels:['Object','Offerte'],richting:'Verzonden',messageId:'<m1>',conversatieId:'c1',outlook:'#',pdf:'#'},
@@ -470,9 +479,9 @@ function fillFromItem(it2){
 }
 async function load(){
   $('main').style.display='none'; $('bar').style.display='none'; arc.key='';
-  if(!loadCfg()){ $('setup').style.display='grid'; msg('Eerst de API-configuratie instellen.','warn'); return; }
+  if(!loadCfg()){ $('setup').style.display='grid'; setMode('inkomend','Eenmalige instelling nodig'); msg('Eerst de API-configuratie instellen: plak de regel die je van Henk kreeg en klik Opslaan.','warn'); return; }
   $('setup').style.display='none'; loadLabels();
-  const it=Office.context.mailbox.item; if(!it){ msg('Selecteer een mail.','warn'); return; }
+  const it=Office.context.mailbox.item; if(!it){ if(WEB){ showWerklijst(); return; } msg('Selecteer een mail.','warn'); return; }
   msg('Beslissing van de agent ophalen…','warn');
   state=blank(); state.mode='inkomend'; state.title=it.subject||''; state.outlookId=Office.context.mailbox.convertToRestId(it.itemId,Office.MailboxEnums.RestVersion.v2_0);
   ['objRes','klantRes','levRes','docRes','mapRes'].forEach(i=>$(i).innerHTML=''); $('mapPlaats').value='';
@@ -523,12 +532,40 @@ function newLabelChip(onAdded){
     wrap.appendChild(i); wrap.appendChild(b); i.focus(); });
   wrap.appendChild(c); return wrap;
 }
+async function showWerklijst(){
+  Office.context.mailbox.item=null; item=null; state=blank(); state.mode='inkomend';
+  $('main').style.display='none'; $('bar').style.display='none'; $('webNav').hidden=true;
+  if(view!=='agent') return;
+  const w=$('werklijst'); w.style.display='grid'; setMode('inkomend','Wacht op jouw antwoord'); msg('','ok');
+  w.innerHTML='<div class="card"><div class="lbl">Werklijst inbox <span class="hint"><span id="wlInfo">ophalen…</span> · <a class="link" href="#" id="wlVernieuw">vernieuwen</a> · <a class="link" href="#" id="wlCfg">instellingen</a></span></div><div class="tiny">Mails die de CENTRALE heeft gelezen en in TO DO 0 Te controleren staan. Klik een mail om te controleren en door te zetten.</div></div><div class="arclist" id="wlRes"></div>';
+  $('wlVernieuw').onclick=e=>{ e.preventDefault(); showWerklijst(); };
+  $('wlCfg').onclick=e=>{ e.preventDefault(); $('setup').style.display='grid'; $('cfg').value=cfg?JSON.stringify(cfg):''; window.scrollTo(0,0); };
+  if(!cfg||!cfg.inboxlijst){ $('wlInfo').textContent='configuratie mist "inboxlijst" — plak de nieuwste configuratie'; return; }
+  try{
+    const r=await api('inboxlijst',{}); const lijst=r.items||[]; const open=lijst.filter(x=>!x.gecontroleerd); const klaar=lijst.filter(x=>x.gecontroleerd).slice(0,15);
+    $('wlInfo').textContent=open.length+' te controleren';
+    const c=$('wlRes'); c.innerHTML='';
+    const rij=x=>{ const d=document.createElement('div'); d.className='arc klik'; d.tabIndex=0; const labs=vals(x.labels);
+      d.innerHTML='<div class="top"><span>'+esc(fmtD(x.ontvangen))+'</span><span class="wl-route">'+esc((val(x.route)||'').replace(/^[A-G] /,''))+'</span></div>'
+        +'<div class="ond">'+esc(x.onderwerp||'(geen onderwerp)')+'</div>'
+        +'<div class="tiny">'+esc(x.van||'')+(x.objectnr?' · <b>'+esc(x.objectnr)+'</b> '+esc(x.objectnaam||''):'')+'</div>'
+        +(labs.length?'<div>'+labs.map(l=>'<span class="lb '+esc(l).replace(/ /g,'')+'">'+esc(l)+'</span>').join('')+'</div>':'');
+      const open=()=>openWeb(x); d.onclick=open; d.onkeydown=e=>{ if(e.key==='Enter') open(); }; return d; };
+    if(!open.length){ const t=document.createElement('div'); t.className='tiny'; t.textContent='Niets te controleren. Alles is doorgezet.'; c.appendChild(t); }
+    open.forEach(x=>c.appendChild(rij(x)));
+    if(klaar.length){ const h=document.createElement('div'); h.className='wl-kop'; h.textContent='Recent doorgezet'; c.appendChild(h); klaar.forEach(x=>c.appendChild(rij(x))); }
+  }catch(e){ $('wlInfo').textContent=''; $('wlRes').innerHTML='<div class="msg err">'+esc(e.message)+'</div>'; }
+}
+function openWeb(x){
+  Office.context.mailbox.item={subject:x.onderwerp||'',itemId:'',internetMessageId:x.messageId||'',from:{displayName:x.van||'',emailAddress:x.van||''},to:[]};
+  $('werklijst').style.display='none'; $('webNav').hidden=false; window.scrollTo(0,0); load();
+}
 function setView(v){
   view=v; document.querySelectorAll('.vt').forEach(t=>{ t.classList.toggle('on',t.dataset.v===v); t.setAttribute('aria-selected',t.dataset.v===v?'true':'false'); });
   const ag=v==='agent';
   $('archief').style.display=ag?'none':'grid';
-  if(ag){ if(state.mode!=='inkomend'){ if(DEMO){ demo(); return; } load(); return; } setMode('inkomend',inkomendTekst()); if(state.itemId!=null||$('subject').textContent){ $('main').style.display='grid'; $('bar').style.display='grid'; } }
-  else { if(state.mode==='archief') return; $('main').style.display='none'; $('bar').style.display='none'; setMode('archief','Zoek en corrigeer gearchiveerde mail. Klik ✎ om een mail te openen.'); loadArchief(false); }
+  if(ag){ if(state.mode!=='inkomend'){ if(DEMO){ demo(); return; } load(); return; } if(WEB&&!Office.context.mailbox.item){ showWerklijst(); return; } if(WEB) $('webNav').hidden=false; setMode('inkomend',inkomendTekst()); if(state.itemId!=null||$('subject').textContent){ $('main').style.display='grid'; $('bar').style.display='grid'; } }
+  else { if(state.mode==='archief') return; $('werklijst').style.display='none'; $('webNav').hidden=true; $('main').style.display='none'; $('bar').style.display='none'; setMode('archief','Zoek en corrigeer gearchiveerde mail. Klik ✎ om een mail te openen.'); loadArchief(false); }
 }
 function mailCtx(){
   if(DEMO) return {messageId:'<m0>',conversatieId:'c1',van:'ruud@blom-installatie.nl',objectnr:(state.obj&&state.obj.objectnr)||''};
@@ -587,6 +624,7 @@ function koppelBody(){
   return b;
 }
 function openArchiefMail(m){
+  $('werklijst').style.display='none'; $('webNav').hidden=true;
   state=blank(); state.mode='archief'; state.arc=m; item=null;
   const it2={Labels:m.labels,Objectnr:m.objectnr,Objectnaam:m.objectnaam,Adres:m.adres,Plaats:m.plaats,Postcode:m.postcode,Klantnr:m.klantnr,Klantnaam:m.klant,Leveranciernr:m.leveranciernr,Leveranciernaam:m.leveranciernaam,Documentnr:m.documentnr,Documentsoort:m.documentsoort,Projectmap:m.projectmap};
   fillFromItem(it2); ['obj','klant','lev','doc','map'].forEach(k=>state.src[k]='jij');
@@ -680,7 +718,15 @@ Office.onReady(()=>{
     window.Office.MailboxEnums=window.Office.MailboxEnums||{RestVersion:{v2_0:'v2.0'}};
     window.Office.EventType=window.Office.EventType||{ItemChanged:'ItemChanged'};
   } }catch(e){ console.warn('live-stand',e); }
-  if(!Office.context||!Office.context.mailbox){ if(/[?&]demo=1/.test(location.search)){ demo(); return; } msg('Dit paneel werkt alleen binnen Outlook. Voeg de invoegtoepassing toe via het manifest en open een mail. Voorbeeld bekijken: voeg ?demo=1 toe aan het adres.','warn'); return; }
+  if(!Office.context||!Office.context.mailbox){ if(/[?&]demo=1/.test(location.search)){ demo(); return; }
+    /* Webversie: zelfde paneel in de browser, met werklijst i.p.v. geopende mail */
+    WEB=true;
+    const ls={get:k=>{ try{ return localStorage.getItem(k); }catch(e){ return null; } },set:(k,v)=>{ try{ localStorage.setItem(k,v); }catch(e){} },saveAsync(){}};
+    Office.context=Object.assign(Office.context||{},{mailbox:{item:null,userProfile:{emailAddress:'henk.kattestaart@dfsg.nl'},convertToRestId:x=>x,addHandlerAsync(){}},roamingSettings:ls});
+    window.Office.MailboxEnums=window.Office.MailboxEnums||{RestVersion:{v2_0:'v2.0'}};
+    window.Office.EventType=window.Office.EventType||{ItemChanged:'ItemChanged'};
+    document.body.classList.add('web');
+  }
   $('who').textContent=(Office.context.mailbox.userProfile&&Office.context.mailbox.userProfile.emailAddress)||'';
   $('cfgSave').onclick=()=>{ try{ const o=JSON.parse($('cfg').value.trim()); if(!o.beslissing||!o.objecten||!o.opslaan) throw 0; saveCfg(o); load(); }catch(e){ msg('Ongeldige configuratie.','err'); } };
   $('cfgOpen').onclick=e=>{ e.preventDefault(); $('setup').style.display='grid'; $('cfg').value=cfg?JSON.stringify(cfg):''; window.scrollTo(0,0); };
@@ -692,7 +738,7 @@ Office.onReady(()=>{
   $('mapGo').onclick=()=>searchMap(false); $('mapPlaats').addEventListener('keydown',e=>{ if(e.key==='Enter') searchMap(false); });
   $('relatie').onchange=()=>{ state.relatie=$('relatie').value; };
   $('btnOk').onclick=()=>state.mode==='archief'?terugNaarArchief():save(true); $('btnSave').onclick=()=>state.mode==='archief'?saveArchief():save(false);
-  $('btnHerken').onclick=herken; $('arcBack').onclick=e=>{ e.preventDefault(); terugNaarArchief(); };
+  $('btnHerken').onclick=herken; $('arcBack').onclick=e=>{ e.preventDefault(); terugNaarArchief(); }; $('webTerug').onclick=e=>{ e.preventDefault(); showWerklijst(); };
   document.querySelectorAll('.vt').forEach(t=>t.addEventListener('keydown',e=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); t.click(); } }));
   document.querySelectorAll('.vt').forEach(t=>t.onclick=()=>setView(t.dataset.v));
   $('arcGo').onclick=arcSearch; $('arcQ').addEventListener('keydown',e=>{ if(e.key==='Enter') arcSearch(); }); $('arcHelpBtn').onclick=arcHelp;
