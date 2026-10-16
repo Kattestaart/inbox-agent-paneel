@@ -351,7 +351,7 @@ state=blank();
 function loadCfg(){ try{ const s=Office.context.roamingSettings.get('inboxAgentCfg'); if(s) cfg=JSON.parse(s); }catch(e){} if(!cfg){ try{ const s=localStorage.getItem('inboxAgentCfg'); if(s) cfg=JSON.parse(s);}catch(e){} } return !!(cfg&&cfg.beslissing&&cfg.objecten&&cfg.opslaan); }
 function saveCfg(obj){ cfg=obj; try{ Office.context.roamingSettings.set('inboxAgentCfg',JSON.stringify(obj)); Office.context.roamingSettings.saveAsync(()=>{}); }catch(e){} try{ localStorage.setItem('inboxAgentCfg',JSON.stringify(obj)); }catch(e){} }
 let DEMO=false;
-const DOORZETTEN_ACTIEF=false; /* aan zetten zodra Agent-API Opslaan de doorzetten-vlag kent */
+const DOORZETTEN_ACTIEF=true; /* aan zetten zodra Agent-API Opslaan de doorzetten-vlag kent */
 function demoApi(name,body){ const base=[
   {id:357,datum:'2026-10-14T19:47:59Z',van:'henk.kattestaart@dfsg.nl',onderwerp:'RE: Projectofferte 20250129 – Student Experience Amstelveen 2025',objectnr:'OBJ001180',objectnaam:'Student Experience Amstelveen 2025',labels:['Object','Offerte'],richting:'Verzonden',messageId:'<m1>',conversatieId:'c1',outlook:'#',pdf:'#'},
   {id:346,datum:'2026-10-14T11:19:06Z',van:'ruud@blom-installatie.nl',onderwerp:'RE: Ringerskwartier – meterkasten detectie',objectnr:'',objectnaam:'',labels:['Techniek/Product'],richting:'Ingekomen',messageId:'<m0>',conversatieId:'c1',outlook:'#',pdf:'#'},
