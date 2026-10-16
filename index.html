@@ -496,7 +496,7 @@ async function load(){
     runLog(item);
     renderRoutes(agentRoute); renderLabels(vals(item.Labels)); renderVervolg(vals(item.Vervolgacties)); renderAll();
     const nk=['Objectnr','Klantnr','Leveranciernr','Documentnr','Projectmap'].filter(f=>item[f]).length;
-    msg(item.Gecontroleerd?'Al gecontroleerd. Je kunt nog aanpassen.':(nk?('De agent stelt '+nk+' koppeling'+(nk>1?'en':'')+' voor. Controleer en klik ✓ Akkoord.'):''),'ok');
+    msg(item.Gecontroleerd?'Al doorgezet. Je kunt nog aanpassen.':(nk?('De agent stelt '+nk+' koppeling'+(nk>1?'en':'')+' voor. Controleer en klik ✓ Akkoord & doorzetten.'):''),'ok');
     showMain(); $('btnOk').disabled=false; $('btnSave').disabled=false; if(view==='archief') loadArchief(false);
     if(state.obj&&state.obj.plaats&&!state.map){ searchMap(true); }
   }catch(e){ msg('Fout: '+e.message,'err'); }
