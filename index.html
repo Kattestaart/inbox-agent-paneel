@@ -262,12 +262,12 @@
     </div>
 
     <div class="card" id="logcard">
-      <div class="lbl">Wat de CENTRALE deed <span class="live" id="bclive" hidden>Verbonden met Business Central</span></div>
+      <div class="lbl">Wat ik heb gevonden — controleer onderstaande en geef akkoord <span class="live" id="bclive" hidden>Verbonden met Business Central</span></div>
       <div class="log" id="log"></div>
     </div>
 
     <div class="card" id="routecard">
-      <div class="lbl">Route · wat moet ermee</div>
+      <div class="lbl">Route voor verdere verwerking</div>
       <div class="chips" id="routes"></div>
     </div>
 
@@ -371,7 +371,7 @@ const val=x=>(x&&typeof x==='object'&&'Value' in x)?x.Value:(x||'');
 const vals=a=>Array.isArray(a)?a.map(val):[];
 const norm=s=>String(s||'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
 
-function renderRoutes(agent){ const c=$('routes'); c.innerHTML=''; ROUTES.forEach(([k,n])=>c.appendChild(chip(k+' '+n,state.route===k,'route'+(agent===k?' agent':''),()=>{state.route=k;renderRoutes(agent);}))); }
+function renderRoutes(agent){ const c=$('routes'); c.innerHTML=''; ROUTES.forEach(([k,n])=>c.appendChild(chip(n,state.route===k,'route'+(agent===k?' agent':''),()=>{state.route=k;renderRoutes(agent);}))); }
 function renderLabels(agent){ const c=$('labels'); c.innerHTML=''; const show=LABELS.filter(l=>showAllLabels||state.labels.has(l)||(agent||[]).includes(l)); show.forEach(l=>c.appendChild(chip(l,state.labels.has(l),(agent||[]).includes(l)?'agent':'',()=>{ state.labels.has(l)?state.labels.delete(l):state.labels.add(l); renderLabels(agent); }))); c.appendChild(chip(showAllLabels?'minder':'+ label',false,'more',()=>{ showAllLabels=!showAllLabels; renderLabels(agent); })); if(showAllLabels) c.appendChild(newLabelChip(n=>{ if(n) state.labels.add(n); renderLabels(agent); })); }
 function renderKoppel(){
   const c=$('koppel'); c.innerHTML='';
@@ -456,7 +456,7 @@ function setMode(mode,tekst){
   $('btnSave').textContent=am?'Opslaan in archief':(DOORZETTEN_ACTIEF?'Alleen opslaan':'Opslaan'); $('btnSave').className='btn '+(am?'steel':'save');
 }
 function uitlegKnoppen(){ const u=$('uitlegKnoppen'); if(u&&!DOORZETTEN_ACTIEF) u.innerHTML='Akkoord zet de categorieën, verplaatst de mail per route en zet bij route C een concept klaar. Er wordt nooit iets verstuurd — dat doe jij.'; }
-function inkomendTekst(){ if(!item) return 'Nog niet door de agent gelezen — sleep hem naar INBOX Agent, of bekijk het archief.'; return item.Gecontroleerd?'✓ Door jou doorgezet. Je kunt nog aanpassen.':'Wacht op jouw akkoord — er gebeurt niets tot je hem doordrukt.'; }
+function inkomendTekst(){ if(!item) return 'Nog niet door de agent gelezen — sleep hem naar INBOX Agent, of bekijk het archief.'; return item.Gecontroleerd?'✓ Door jou doorgezet. Je kunt nog aanpassen.':'Wacht op jouw antwoord'; }
 function fillFromItem(it2){
   state.labels=new Set(vals(it2.Labels)); state.vervolg=new Set(vals(it2.Vervolgacties)); state.relatie=val(it2.Relatie)||'Onbekend'; $('relatie').value=state.relatie;
   state.obj=it2.Objectnr?{objectnr:it2.Objectnr,naam:it2.Objectnaam,adres:it2.Adres,plaats:it2.Plaats,postcode:it2.Postcode,klantnr:it2.Klantnr,klantnaam:it2.Klantnaam}:null;
@@ -481,7 +481,7 @@ async function load(){
     if(!d.found){ item=null; msg('Deze mail is nog niet door de agent gelezen (staat hij in INBOX Agent?).','warn'); $('richting').textContent='–'; $('agentzegt').textContent='–'; $('samenvatting').textContent=''; $('todo').textContent=''; state.route='E'; renderRoutes(null); renderLabels([]); renderVervolg([]); renderAll(); showMain(); $('btnOk').disabled=true; $('btnSave').disabled=true; setMode('inkomend',inkomendTekst()); setView('archief'); return; }
     item=d.item; const agentRoute=(val(item.Route)||'G').charAt(0); const henkRoute=val(item.RouteHenk);
     state.itemId=item.ID; state.route=(henkRoute||val(item.Route)||'G').charAt(0); fillFromItem(item);
-    $('richting').textContent=val(item.Richting)||'–'; $('agentzegt').textContent=(val(item.Route)||'')+' · zekerheid '+(val(item.Zekerheid)||'?')+(item.Gecontroleerd?' · ✓ gecontroleerd':'');
+    $('richting').textContent=val(item.Richting)||'–'; $('agentzegt').textContent=(val(item.Route)||'').replace(/^[A-G] /,'')+' · zekerheid '+(val(item.Zekerheid)||'?')+(item.Gecontroleerd?' · ✓ gecontroleerd':'');
     $('correctie').value=item.Correctie||''; if(view==='agent') setMode('inkomend',inkomendTekst());
     runLog(item);
     renderRoutes(agentRoute); renderLabels(vals(item.Labels)); renderVervolg(vals(item.Vervolgacties)); renderAll();
@@ -656,7 +656,7 @@ function demo(){
   state.obj={objectnr:item.Objectnr,naam:item.Objectnaam,adres:item.Adres,plaats:item.Plaats,klantnr:item.Klantnr,klantnaam:item.Klantnaam};
   state.klant={nr:item.Klantnr,naam:item.Klantnaam,extra:''}; state.lev=null; state.doc={soort:'offerte',nr:'VOF26-0412',naam:'Uitbreiding BMI Ringerskwartier',extra:'€ 4.850 · open'};
   state.map={naam:'Ringerskwartier',pad:item.Projectmap,url:'https://mmhbrandbeveiliging.sharepoint.com'+item.Projectmap};
-  $('richting').textContent='Inkomend'; $('agentzegt').textContent='C Beantwoorden · zekerheid Hoog';
+  $('richting').textContent='Inkomend'; $('agentzegt').textContent='Beantwoorden · zekerheid Hoog';
   $('samenvatting').textContent=item.Samenvatting; $('todo').innerHTML='<b>Te doen:</b> '+esc(item.WatMoetIkDoen); $('vervolgtoel').textContent=item.VervolgToelichting;
   renderRoutes('C'); renderLabels(vals(item.Labels)); renderVervolg(vals(item.Vervolgacties)); renderAll();
   document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{ document.querySelectorAll('.tab').forEach(x=>x.classList.remove('on')); document.querySelectorAll('.pane').forEach(x=>x.classList.remove('on')); t.classList.add('on'); $('p-'+t.dataset.t).classList.add('on'); });
