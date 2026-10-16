@@ -216,6 +216,8 @@
   .rt .vast{font-size:12px;color:var(--f-text2)}
   .switch{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:400;cursor:pointer}
   #routeUitleg{background:#fafafa;border:1px dashed var(--f-stroke2);border-radius:4px;padding:6px 8px}
+  .afspraak{display:inline-block;font-size:11px;border-radius:4px;padding:1px 6px;background:var(--ok-soft);color:var(--ok);margin-left:4px}
+  .bundel{display:flex;gap:8px;align-items:center;justify-content:space-between;background:var(--ok-soft);border:1px solid #9fd89f;border-radius:8px;padding:10px 12px}
 </style>
 </head>
 <body>
@@ -289,6 +291,13 @@
       <div class="lbl">Route voor verdere verwerking</div>
       <div class="chips" id="routes"></div>
       <div class="tiny" id="routeUitleg"></div>
+    </div>
+
+    <div class="card" id="leerCard">
+      <div class="lbl">Leer de CENTRALE <span class="hint" id="afspraakInfo"></span></div>
+      <label class="switch" style="font-size:13px;align-items:flex-start"><input type="checkbox" id="leerAan" style="margin-top:3px"> <span>Mails zoals deze voortaan zo voorstellen: zelfde afzender, onderwerp en inhoud (cijfers, datums en tijden tellen niet mee).</span></label>
+      <textarea id="leerInstructie" placeholder="Instructie voor de CENTRALE bij dit type mail, bijv. 'Back-up geslaagd: altijd archiveren, geen actie nodig.'"></textarea>
+      <div class="tiny">Vertrouwen groeit vanzelf: na 3× ongewijzigd akkoord mag hij ze bundelen, na 10× (alleen Archief/Lezen) zelfstandig afhandelen. Wijzig je de route, dan begint hij opnieuw. In te zien en aan/uit te zetten bij Routes.</div>
     </div>
 
     <div class="card">
@@ -471,7 +480,7 @@ function setMode(mode,tekst){
   const t={inkomend:'Inbox',archief:'Archief',archiefmail:'Archiefmail',routes:'Control panel'}[mode];
   $('band').innerHTML='<b>'+t+'</b><span>'+esc(tekst||'')+'</span>';
   const am=mode==='archiefmail';
-  $('arcEditCard').hidden=!am; $('routecard').hidden=am; $('logcard').hidden=am;
+  $('arcEditCard').hidden=!am; $('routecard').hidden=am; $('logcard').hidden=am; $('leerCard').hidden=am;
   $('btnOk').className='btn '+(am?'back':'ok'); $('btnOk').textContent=am?'← Terug':(DOORZETTEN_ACTIEF?'✓ Akkoord & doorzetten':'✓ Akkoord');
   $('btnSave').textContent=am?'Opslaan in archief':(DOORZETTEN_ACTIEF?'Alleen opslaan':'Opslaan'); $('btnSave').className='btn '+(am?'steel':'save');
 }
@@ -503,6 +512,7 @@ async function load(){
     state.itemId=item.ID; state.route=(henkRoute||val(item.Route)||'G').charAt(0); fillFromItem(item);
     $('richting').textContent=val(item.Richting)||'–'; $('agentzegt').textContent=(val(item.Route)||'').replace(/^[A-G] /,'')+' · zekerheid '+(val(item.Zekerheid)||'?')+(item.Gecontroleerd?' · ✓ gecontroleerd':'');
     $('correctie').value=item.Correctie||''; if(view==='agent') setMode('inkomend',inkomendTekst());
+    $('leerAan').checked=false; $('leerInstructie').value=''; const af=item.Afspraak||(window.__wlItem&&window.__wlItem.afspraak); const afn=val(item.AfspraakNiveau)||(window.__wlItem&&window.__wlItem.afspraakNiveau); $('afspraakInfo').innerHTML=af?('<span class="afspraak">volgens afspraak '+esc(String(af).split(' ')[0])+' · '+esc(afn||'Voorstel')+'</span>'):'';
     runLog(item);
     renderRoutes(agentRoute); renderLabels(vals(item.Labels)); renderVervolg(vals(item.Vervolgacties)); renderAll();
     const nk=['Objectnr','Klantnr','Leveranciernr','Documentnr','Projectmap'].filter(f=>item[f]).length;
@@ -524,6 +534,7 @@ async function save(akkoord){
     if(!DEMO&&cfg.archiefwijzigen){ try{ const it=Office.context.mailbox.item; const a=await api('archiefwijzigen',Object.assign(koppelBody(),{messageId:it.internetMessageId,bron:akkoord?'Inkomend (akkoord)':'Inkomend'})); if(a.gevonden&&a.ok) extra=' · ook in archief bijgewerkt'; }catch(e){} }
     msg((DOORZETTEN_ACTIEF?(akkoord?'Doorgezet':'Correcties opgeslagen (nog niet doorgezet)'):(akkoord?'Akkoord vastgelegd':'Opgeslagen'))+' · '+(r.categorieen||[]).join(', ')+(r.verplaatst==='Succeeded'?' · mail verplaatst':'')+extra,'ok');
     if(akkoord&&item){ item.Gecontroleerd=true; setMode('inkomend',inkomendTekst()); }
+    if(akkoord&&$('leerAan')&&$('leerAan').checked&&!DEMO&&cfg.regels){ try{ const it=Office.context.mailbox.item; await api('regels',{actie:'maak',messageId:it.internetMessageId,route:state.route,labels:canon([...state.labels]),instructie:$('leerInstructie').value.trim()}); extra+=' · afspraak vastgelegd'; }catch(e){ extra+=' · afspraak vastleggen mislukt'; } }
     if(akkoord&&DOORZETTEN_ACTIEF){
       msg('Doorgezet. De CENTRALE werkt de route nu af ('+(routeZin(state.route)||'verplaatsen')+'). '+(WEB?'Terug naar de werklijst…':'Je kunt de volgende mail openen.'),'ok');
       bezig=false;
@@ -579,6 +590,20 @@ async function showRoutes(){
       b.disabled=false; };
     L.appendChild(c);
   });
+  const ak=document.createElement('div'); ak.className='card'; ak.innerHTML='<div class="lbl">Vaste afspraken per type mail</div><div class="tiny">Ontstaan via "Leer de CENTRALE" in de Inbox. Voorstel = de CENTRALE stelt voor, jij geeft akkoord · Bundel = in één klik bovenaan de werklijst · Automatisch = direct afgehandeld (alleen Archief/Lezen). Uitzetten kan altijd; verwijderen nooit.</div><div id="afLijst" style="display:grid;gap:8px"><span class="tiny">Afspraken ophalen…</span></div>'; L.appendChild(ak);
+  (async()=>{ const AL=$('afLijst'); if(DEMO){ AL.innerHTML='<span class="tiny">(voorbeeld) nog geen afspraken</span>'; return; } if(!cfg.regels){ AL.innerHTML='<span class="msg warn">Configuratie mist "regels".</span>'; return; }
+    try{ const r=await api('regels',{actie:'lijst'}); const R=r.regels||[]; AL.innerHTML=R.length?'':'<span class="tiny">Nog geen afspraken. Vink in de Inbox "Mails zoals deze voortaan zo voorstellen" aan bij Akkoord & doorzetten.</span>';
+      R.forEach(a=>{ const c=document.createElement('div'); c.className='rt'; c.style.borderTop='1px solid var(--f-stroke)'; c.style.paddingTop='8px';
+        const rn=(routeInfo(a.Route)||{}).Naam||a.Route;
+        c.innerHTML='<h3><span>'+esc(a.Voorbeeldonderwerp||a.Title||'')+'</span><label class="switch"><input type="checkbox" class="aan" '+(a.Actief!==false?'checked':'')+'> actief</label></h3>'
+          +'<div class="vast">'+esc(a.Afzender||'')+' · route <b>'+esc(rn)+'</b>'+(a.Labels?' · '+esc(a.Labels):'')+' · '+(a.AantalToegepast||0)+'× herkend · '+(a.OngewijzigdAkkoord||0)+'× ongewijzigd akkoord</div>'
+          +'<label>Vertrouwen<select class="niv"><option>Voorstel</option><option>Bundel</option><option'+(['A','E'].includes(a.Route)?'':' disabled')+'>Automatisch</option></select></label>'
+          +'<label>Instructie<textarea class="ins">'+esc(a.Instructie||'')+'</textarea></label>'
+          +'<div style="display:flex;gap:8px;align-items:center"><button class="btn steel opsl">Opslaan</button><span class="tiny st"></span></div>';
+        c.querySelector('.niv').value=a.Niveau||'Voorstel';
+        c.querySelector('.opsl').onclick=async()=>{ const st=c.querySelector('.st'); st.textContent='Opslaan…'; try{ const w=await api('regels',{actie:'wijzig',id:a.ID,actief:c.querySelector('.aan').checked,niveau:c.querySelector('.niv').value,instructie:c.querySelector('.ins').value}); st.textContent=w.ok?'Opgeslagen ✓':'Fout'; }catch(e){ st.textContent='Fout: '+e.message; } };
+        AL.appendChild(c); });
+    }catch(e){ AL.innerHTML='<span class="msg err">'+esc(e.message)+'</span>'; } })();
   const kop=document.createElement('div'); kop.className='card'; kop.innerHTML='<div class="lbl">Agents · spelregels</div><div class="tiny">Losse agents die per route ingezet kunnen worden. Hun spelregels gelden overal waar ze worden gebruikt.</div>'; L.appendChild(kop);
   AGENTCAT.forEach(a=>{
     const c=document.createElement('div'); c.className='card rt';
@@ -629,13 +654,19 @@ async function showWerklijst(melding){
         +'<div class="ond">'+esc(x.onderwerp||'(geen onderwerp)')+'</div>'
         +'<div class="tiny">'+esc(x.van||'')+(x.objectnr?' · <b>'+esc(x.objectnr)+'</b> '+esc(x.objectnaam||''):'')+'</div>'
         +(labs.length?'<div>'+labs.map(l=>'<span class="lb '+esc(l).replace(/ /g,'')+'">'+esc(l)+'</span>').join('')+'</div>':'');
+      if(x.afspraak){ const t=d.querySelector('.top span'); if(t) t.insertAdjacentHTML('beforeend','<span class="afspraak">volgens afspraak · '+esc(x.afspraakNiveau||'Voorstel')+'</span>'); }
       const open=()=>openWeb(x); d.onclick=open; d.onkeydown=e=>{ if(e.key==='Enter') open(); }; return d; };
+    const bundel=open.filter(x=>x.afspraak&&(x.afspraakNiveau==='Bundel'||x.afspraakNiveau==='Automatisch'));
+    if(bundel.length){ const b=document.createElement('div'); b.className='bundel'; b.innerHTML='<span><b>'+bundel.length+' mail(s) volgens afspraak</b><br><span class="tiny">'+esc([...new Set(bundel.map(x=>x.onderwerp||''))].slice(0,3).join(' · '))+'</span></span>'; const k=document.createElement('button'); k.className='btn ok'; k.textContent='Alles akkoord & doorzetten'; b.appendChild(k); c.appendChild(b);
+      k.onclick=async()=>{ k.disabled=true; let n=0; for(const x of bundel){ k.textContent='Bezig '+(++n)+'/'+bundel.length+'…'; try{ await api('opslaan',{doorzetten:true,itemId:x.id,outlookId:'',title:x.onderwerp||'',route:(val(x.route)||'G').charAt(0),labels:vals(x.labels),objectnr:x.objectnr||'',objectnaam:x.objectnaam||'',adres:x.adres||'',plaats:x.plaats||'',klantnr:x.klantnr||'',klantnaam:x.klantnaam||'',leveranciernr:x.leveranciernr||'',leveranciernaam:x.leveranciernaam||'',documentnr:x.documentnr||'',documentsoort:val(x.documentsoort)||'',projectmap:x.projectmap||'',projectmapNaam:(x.projectmap||'').split('/').pop(),relatie:val(x.relatie)||'Onbekend',correctie:'',vervolgacties:vals(x.vervolgacties)}); }catch(e){} } showWerklijst(bundel.length+' mail(s) volgens afspraak doorgezet — de CENTRALE werkt de routes af.'); };
+    }
     if(!open.length){ const t=document.createElement('div'); t.className='tiny'; t.textContent='Niets te controleren. Alles is doorgezet.'; c.appendChild(t); }
     open.forEach(x=>c.appendChild(rij(x)));
     if(klaar.length){ const h=document.createElement('div'); h.className='wl-kop'; h.textContent='Recent doorgezet'; c.appendChild(h); klaar.forEach(x=>c.appendChild(rij(x))); }
   }catch(e){ $('wlInfo').textContent=''; $('wlRes').innerHTML='<div class="msg err">'+esc(e.message)+'</div>'; }
 }
 function openWeb(x){
+  window.__wlItem=x;
   Office.context.mailbox.item={subject:x.onderwerp||'',itemId:'',internetMessageId:x.messageId||'',from:{displayName:x.van||'',emailAddress:x.van||''},to:[]};
   $('werklijst').style.display='none'; $('webNav').hidden=false; window.scrollTo(0,0); load();
 }
