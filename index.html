@@ -604,6 +604,24 @@ async function showRoutes(){
         c.querySelector('.opsl').onclick=async()=>{ const st=c.querySelector('.st'); st.textContent='Opslaan…'; try{ const w=await api('regels',{actie:'wijzig',id:a.ID,actief:c.querySelector('.aan').checked,niveau:c.querySelector('.niv').value,instructie:c.querySelector('.ins').value}); st.textContent=w.ok?'Opgeslagen ✓':'Fout'; }catch(e){ st.textContent='Fout: '+e.message; } };
         AL.appendChild(c); });
     }catch(e){ AL.innerHTML='<span class="msg err">'+esc(e.message)+'</span>'; } })();
+  const rk=document.createElement('div'); rk.className='card'; rk.innerHTML='<div class="lbl">Relatiekennis <span class="hint"><a class="link" href="#" id="rkNieuw">+ partij toevoegen</a></span></div><div class="tiny">Partijen met meerdere rollen (bijv. leverancier én klant). De CENTRALE krijgt dit mee bij elke mail van hun maildomein en kiest zo de juiste rol, relatie en object.</div><div id="rkLijst" style="display:grid;gap:8px"><span class="tiny">Ophalen…</span></div>'; L.appendChild(rk);
+  const ROLLEN=['Klant','Leverancier','ICT-partner','Partner/Adviseur','Onderaannemer','Overheid/Instantie','Intern'];
+  const rkKaart=(r)=>{ const c=document.createElement('div'); c.className='rt'; c.style.borderTop='1px solid var(--f-stroke)'; c.style.paddingTop='8px'; const sel=new Set(vals(r.Rollen));
+    c.innerHTML='<h3><span><input type="text" class="nm" value="'+esc(r.Title||'')+'" placeholder="Naam partij" style="font-weight:600"></span><label class="switch"><input type="checkbox" class="aan" '+(r.Actief!==false?'checked':'')+'> actief</label></h3>'
+      +'<label>Maildomeinen (komma-gescheiden)<input type="text" class="dom" value="'+esc(r.Domeinen||'')+'" placeholder="bijv. coas.nl"></label>'
+      +'<div><div class="lbl" style="margin-bottom:4px">Rollen</div><div class="chips rl"></div></div>'
+      +'<label>Wanneer welke rol (toelichting voor de CENTRALE)<textarea class="tl" style="min-height:80px">'+esc(r.Toelichting||'')+'</textarea></label>'
+      +'<div class="row2" style="display:flex;gap:6px"><label style="flex:1">Klantnr<input type="text" class="kn" value="'+esc(r.Klantnr||'')+'"></label><label style="flex:1">Leveranciernr<input type="text" class="ln" value="'+esc(r.Leveranciernr||'')+'"></label><label style="flex:1">Objectnr<input type="text" class="on" value="'+esc(r.Objectnr||'')+'"></label></div>'
+      +'<div style="display:flex;gap:8px;align-items:center"><button class="btn steel opsl">Opslaan</button><span class="tiny st"></span></div>';
+    const rl=c.querySelector('.rl'); const draw=()=>{ rl.innerHTML=''; ROLLEN.forEach(n=>rl.appendChild(chip(n,sel.has(n),'small',()=>{ sel.has(n)?sel.delete(n):sel.add(n); draw(); }))); }; draw();
+    c.querySelector('.opsl').onclick=async()=>{ const st=c.querySelector('.st'); st.textContent='Opslaan…';
+      const velden={Title:c.querySelector('.nm').value.trim(),Domeinen:c.querySelector('.dom').value.trim().toLowerCase(),Rollen:ROLLEN.filter(n=>sel.has(n)),Toelichting:c.querySelector('.tl').value,Klantnr:c.querySelector('.kn').value.trim(),Leveranciernr:c.querySelector('.ln').value.trim(),Objectnr:c.querySelector('.on').value.trim().toUpperCase(),Actief:c.querySelector('.aan').checked};
+      if(!velden.Title||!velden.Domeinen){ st.textContent='Naam en maildomein zijn verplicht.'; return; }
+      try{ if(DEMO){ st.textContent='Voorbeeldpagina: niet opgeslagen.'; return; } const w=await api('routes',{actie:'relatie_opslaan',id:r.ID||0,velden}); st.textContent=w.ok?'Opgeslagen ✓':'Fout'; if(w.ok&&!r.ID){ r.ID=(w.relaties||[]).find(x=>x.Title===velden.Title)?.ID; } }catch(e){ st.textContent='Fout: '+e.message; } };
+    return c; };
+  (async()=>{ const RL=$('rkLijst'); let R=[]; if(DEMO){ R=[{ID:1,Title:'Coas (voorbeeld)',Domeinen:'coas.nl',Rollen:['ICT-partner','Leverancier','Klant'],Toelichting:'Licenties/IT-tickets = leverancier; onderhoud kantoor Middelharnis = klant.',Actief:true}]; } else { try{ const r=await api('routes',{actie:'lijst'}); R=r.relaties||[]; }catch(e){ RL.innerHTML='<span class="msg err">'+esc(e.message)+'</span>'; return; } }
+    RL.innerHTML=R.length?'':'<span class="tiny">Nog geen partijen.</span>'; R.forEach(r=>RL.appendChild(rkKaart(r)));
+    $('rkNieuw').onclick=e=>{ e.preventDefault(); if(RL.querySelector('.tiny')) RL.innerHTML=''; RL.prepend(rkKaart({Actief:true})); }; })();
   const kop=document.createElement('div'); kop.className='card'; kop.innerHTML='<div class="lbl">Agents · spelregels</div><div class="tiny">Losse agents die per route ingezet kunnen worden. Hun spelregels gelden overal waar ze worden gebruikt.</div>'; L.appendChild(kop);
   AGENTCAT.forEach(a=>{
     const c=document.createElement('div'); c.className='card rt';
