@@ -245,6 +245,7 @@
   .lz-pdf canvas{background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.2);max-width:100%;height:auto}
   .lz-leeg{padding:24px;color:var(--f-text2);font-size:14px}
   @media (max-width:1000px){ body.web.lees{grid-template-columns:1fr} body.web.lees #lezer{position:static;height:70vh} body.web.lees .bar{width:100%} }
+  table.ov{border-collapse:collapse;font-size:12px;min-width:640px;width:100%} table.ov th,table.ov td{border:1px solid var(--f-stroke);padding:6px 8px;text-align:left;vertical-align:top} table.ov th{background:#fafafa;font-weight:600}
 </style>
 </head>
 <body>
@@ -311,12 +312,12 @@
 
     <div class="card" id="arcEditCard" hidden>
       <div class="lbl">Archiefmail <a class="link" href="#" id="arcBack" style="text-transform:none;letter-spacing:0">← terug naar archief</a></div>
-      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center"><button class="btn steel" id="btnHerken" style="flex:1">Laat de CENTRALE herkennen</button><a class="link tiny" id="arcPdf" target="_blank">↗ PDF</a><a class="link tiny" id="arcOutlook" target="_blank">↗ Outlook</a></div>
-      <div class="tiny">De CENTRALE doet hetzelfde als bij inkomende mail (BC-object, klant, leverancier, document, projectmap, labels) en stelt voor; er verandert pas iets als jij op <b>Opslaan in archief</b> klikt. Kost ±0,3 Copilot-credit.</div>
+      <div style="display:flex;gap:14px;flex-wrap:wrap;align-items:center"><a class="link tiny" id="arcPdf" target="_blank">↗ PDF in archief</a><a class="link tiny" id="arcOutlook" target="_blank">↗ Openen in Outlook</a><button id="btnHerken" hidden></button></div>
+      <div class="tiny">Werkt precies als de Inbox: zelfde kaarten, zelfde CENTRALE. Er verandert pas iets als jij op <b>Opslaan in archief</b> klikt. Er wordt niets verplaatst of verstuurd.</div>
     </div>
 
     <div class="card" id="logcard">
-      <div class="lbl">Wat ik heb gevonden — controleer onderstaande en geef akkoord <a class="link" href="#" id="herkenOpnieuw" style="font-weight:400">opnieuw herkennen</a> <span class="live" id="bclive" hidden>Verbonden met Business Central</span></div>
+      <div class="lbl"><span id="logTitel">Wat ik heb gevonden — controleer onderstaande en geef akkoord</span> <a class="link" href="#" id="herkenOpnieuw" style="font-weight:400">opnieuw herkennen</a> <span class="live" id="bclive" hidden>Verbonden met Business Central</span></div>
       <div class="log" id="log"></div>
     </div>
 
@@ -513,7 +514,9 @@ function setMode(mode,tekst){
   const t={inkomend:'Inbox',archief:'Archief',archiefmail:'Archiefmail',routes:'Control panel'}[mode];
   $('band').innerHTML='<b>'+t+'</b><span>'+esc(tekst||'')+'</span>';
   const am=mode==='archiefmail';
-  $('arcEditCard').hidden=!am; $('routecard').hidden=am; $('logcard').hidden=am; $('leerCard').hidden=am;
+  $('arcEditCard').hidden=!am; $('routecard').hidden=false; $('logcard').hidden=false; $('leerCard').hidden=false;
+  $('logTitel').textContent=am?'Wat ik heb gevonden — controleer onderstaande en sla op':'Wat ik heb gevonden — controleer onderstaande en geef akkoord';
+  $('herkenOpnieuw').textContent=am?'laat de CENTRALE (opnieuw) herkennen':'opnieuw herkennen';
   $('btnOk').className='btn '+(am?'back':'ok'); $('btnOk').textContent=am?'← Terug':(DOORZETTEN_ACTIEF?'✓ Akkoord & doorzetten':'✓ Akkoord');
   $('btnSave').textContent=am?'Opslaan in archief':(DOORZETTEN_ACTIEF?'Alleen opslaan':'Opslaan'); $('btnSave').className='btn '+(am?'steel':'save');
 }
@@ -527,7 +530,7 @@ function fillFromItem(it2){
   state.doc=it2.Documentnr?{soort:(val(it2.Documentsoort)||'').toLowerCase(),nr:it2.Documentnr,naam:'',extra:''}:null;
   ['obj','klant','lev','doc','map'].forEach(k=>state.src[k]='agent');
   state.map=it2.Projectmap?{naam:it2.Projectmap.split('/').pop(),pad:it2.Projectmap,url:'https://mmhbrandbeveiliging.sharepoint.com'+it2.Projectmap}:null;
-  $('samenvatting').textContent=it2.Samenvatting||''; $('todo').innerHTML=it2.WatMoetIkDoen?('<b>Te doen:</b> '+esc(it2.WatMoetIkDoen)):''; $('vervolgtoel').textContent=(it2.VervolgToelichting||'').replace(/\n/g,' · ');
+  $('samenvatting').textContent=it2.Samenvatting||''; $('todo').innerHTML=it2.WatMoetIkDoen?('<b>Te doen:</b> '+esc(it2.WatMoetIkDoen)):''; state.todoTekst=it2.WatMoetIkDoen||''; $('vervolgtoel').textContent=(it2.VervolgToelichting||'').replace(/\n/g,' · ');
 }
 async function load(){
   $('main').style.display='none'; $('bar').style.display='none'; arc.key='';
@@ -595,7 +598,23 @@ function routeZin(k){
   if(r.Actie==='Concept doorsturen') return 'Na doorzetten: de CENTRALE zet een doorstuurconcept aan '+(r.DoorsturenAan||'-')+' klaar in '+(r.Conceptmap||'TO DO 1')+' en verplaatst de mail naar '+(r.Doelmap||'-')+'. Jij verstuurt.';
   return 'Na doorzetten: de mail gaat naar '+(r.Doelmap||'-')+'.';
 }
-function toonRouteUitleg(){ const u=$('routeUitleg'); if(u) u.textContent=routeZin(state.route)||''; u&&(u.style.display=u.textContent?'':'none'); }
+function toonRouteUitleg(){ const u=$('routeUitleg'); if(u) u.textContent=state.mode==='archief'?(state.route?'In het archief wordt de route vastgelegd als kenmerk (voor zoeken en leren). Er wordt niets verplaatst of verstuurd.':''):(routeZin(state.route)||''); u&&(u.style.display=u.textContent?'':'none'); }
+/* Overzicht: welke agents bij welke mailbox in welke fase (Henk = live uit het control panel) */
+function agentOverzicht(){
+  const routeAg=(ROUTECFG||[]).filter(r=>r.Actief!==false).map(r=>{ const ag=vals(r.Agents); const act=r.Actie==='Concept antwoord'?'concept-antwoord':(r.Actie==='Concept doorsturen'?'doorstuurconcept':'verplaatsen'); return '<b>'+esc(r.Naam||r.Title)+'</b>: '+act+(ag.length?' + '+esc(ag.join(', ')):''); }).join('<br>');
+  const F=[
+    ['1 · Binnenkomst','CENTRALE leest en herkent: BC, bijlagen (OCR), documenten, relatiekennis, correcties, vaste afspraken'],
+    ['2 · Controle (mens)','Jij: Akkoord &amp; doorzetten of Alleen opslaan'],
+    ['3 · Route','ROUTES'],
+    ['4 · Verzenden (mens)','Jij leest en verstuurt het concept'],
+    ['5 · Archief','Verzonden → archief · Archiveer mail · CENTRALE herkent nieuwe archiefmail · Leerflow (labels/objecten uit correcties)']];
+  const MB=[['Henk.Kattestaart','Pilot · testfase via INBOX Agent','alle agents'],['Administratie@','Ontwerp klaar','gepland: CENTRALE + route debiteuren/crediteuren'],['Support@','Gepland','gepland'],['Info@','Gepland','gepland']];
+  const c=document.createElement('div'); c.className='card';
+  let h='<div class="lbl">Agents per mailbox en fase</div><div class="tiny">Elke agent is een losse bouwsteen. De mailbox van Henk gebruikt ze allemaal; andere mailboxen krijgen alleen de agents die ze nodig hebben. De routefase komt live uit de routes hieronder.</div>';
+  h+='<div style="overflow-x:auto"><table class="ov"><thead><tr><th>Fase</th>'+MB.map(m=>'<th>'+esc(m[0])+'<br><span class="tiny">'+esc(m[1])+'</span></th>').join('')+'</tr></thead><tbody>';
+  F.forEach(([f,t])=>{ h+='<tr><td><b>'+f+'</b></td>'+MB.map((m,i)=>'<td>'+(i===0?(t==='ROUTES'?(routeAg||'-'):t):'<span class="tiny">'+esc(i===1&&f.startsWith('1')?'CENTRALE (zelfde bouwsteen)':m[2])+'</span>')+'</td>').join('')+'</tr>'; });
+  h+='</tbody></table></div>'; c.innerHTML=h; return c;
+}
 async function showRoutes(){
   const w=$('routesView'); w.style.display='grid'; setMode('routes','Per route: welke actie, welke agents en welke instructies de CENTRALE uitvoert na Akkoord & doorzetten.'); msg('','ok');
   w.innerHTML='<div class="card"><div class="lbl">Control panel · routes <span class="hint"><a class="link" href="#" id="rtVernieuw">vernieuwen</a></span></div><div class="tiny">Wijzigingen werken direct voor de volgende mail die je doorzet. De CENTRALE kiest de route bij binnenkomst; jij bevestigt hem in de Inbox.</div></div><div id="rtLijst" style="display:grid;gap:8px"><span class="tiny">Routes ophalen…</span></div>';
@@ -604,6 +623,7 @@ async function showRoutes(){
   await loadRoutes(true); const L=$('rtLijst'); L.innerHTML='';
   if(!ROUTECFG){ L.innerHTML='<div class="msg err">Routes konden niet worden opgehaald.</div>'; return; }
   const agentNamen=AGENTCAT.map(a=>a.Title).filter(t=>t!=='ARCHIVARIS-STIJL');
+  L.appendChild(agentOverzicht());
   ROUTECFG.forEach(r=>{
     const c=document.createElement('div'); c.className='card rt'; const sel=new Set(vals(r.Agents));
     c.innerHTML='<h3><span>'+esc(r.Naam||'')+'<span class="code">route '+esc(r.Title)+'</span></span><label class="switch"><input type="checkbox" class="aan" '+(r.Actief!==false?'checked':'')+'> actief</label></h3>'
@@ -844,9 +864,9 @@ function renderArchief(){
   list.forEach(m=>{
     const w=whyOf(m); const d=document.createElement('div'); d.className='arc'+(w.includes('deze mail')?' deze':'');
     const labs=vals(m.labels); const rich=val(m.richting);
-    d.innerHTML='<div class="top"><span>'+esc(fmtD(m.datum))+(rich?' · '+esc(rich):'')+'</span><span>'+w.map(x=>'<span class="why">'+esc(x)+'</span>').join('')+'</span></div>'
+    d.innerHTML='<div class="top"><span>'+esc(fmtD(m.datum))+(rich?' · '+esc(rich):'')+w.map(x=>' <span class="why">'+esc(x)+'</span>').join('')+'</span><span class="wl-route">'+esc(String(m.route||'').replace(/^[A-Z] /,''))+'</span></div>'
       +'<div class="ond">'+esc(m.onderwerp||'(geen onderwerp)')+'</div>'
-      +'<div class="tiny">'+esc(m.van||'')+(m.objectnr?' · <b>'+esc(m.objectnr)+'</b> '+esc(m.objectnaam||''):' · <i>geen object</i>')+'</div>'
+      +'<div class="tiny">'+esc(m.van||'')+(m.objectnr?' · <b>'+esc(m.objectnr)+'</b> '+esc(m.objectnaam||''):(m.leveranciernr?' · leverancier <b>'+esc(m.leveranciernr)+'</b> '+esc(m.leveranciernaam||''):' · <i>geen object</i>'))+'</div>'
       +'<div>'+(labs.length?labs.map(l=>'<span class="lb '+esc(l).replace(/ /g,'')+'">'+esc(l)+'</span>').join(''):'<span class="tiny">geen labels</span>')+'</div>';
     const acts=document.createElement('div'); acts.className='acts';
     if(m.outlook){ const a=document.createElement('a'); a.href=m.outlook; a.target='_blank'; a.textContent='↗ Outlook'; a.title='Origineel openen (beantwoorden/doorsturen)'; acts.appendChild(a); }
@@ -864,19 +884,21 @@ function koppelBody(){
   const o=state.obj||{}, k=state.klant||{}, l=state.lev||{}, d=state.doc||{}, m=state.map||{};
   const b={labels:canon([...state.labels]),waarom:$('correctie').value.trim(),klantnr:k.nr||o.klantnr||'',klant:k.naam||o.klantnaam||'',leveranciernr:l.nr||'',leveranciernaam:l.naam||'',documentnr:d.nr||'',documentsoort:d.soort?(DOCLBL[d.soort]||d.soort):'',projectmap:m.pad||''};
   if(o.objectnr) Object.assign(b,{objectnr:o.objectnr,objectnaam:o.naam||'',adres:o.adres||'',postcode:o.postcode||'',plaats:o.plaats||''});
+  if(state.route) b.route=state.route+' '+(((typeof routeInfo==='function')&&routeInfo(state.route)||{}).Naam||(ROUTES.find(r=>r[0]===state.route)||[])[1]||'');
+  b.relatie=$('relatie').value||''; b.vervolgacties=[...state.vervolg].join(', '); b.samenvatting=$('samenvatting').textContent||''; b.watmoetikdoen=state.todoTekst||'';
   return b;
 }
 function openArchiefMail(m){
   $('werklijst').style.display='none'; $('webNav').hidden=true;
   state=blank(); state.mode='archief'; state.arc=m; item=null;
-  const it2={Labels:m.labels,Objectnr:m.objectnr,Objectnaam:m.objectnaam,Adres:m.adres,Plaats:m.plaats,Postcode:m.postcode,Klantnr:m.klantnr,Klantnaam:m.klant,Leveranciernr:m.leveranciernr,Leveranciernaam:m.leveranciernaam,Documentnr:m.documentnr,Documentsoort:m.documentsoort,Projectmap:m.projectmap};
+  const it2={Labels:m.labels,Objectnr:m.objectnr,Objectnaam:m.objectnaam,Adres:m.adres,Plaats:m.plaats,Postcode:m.postcode,Klantnr:m.klantnr,Klantnaam:m.klant,Leveranciernr:m.leveranciernr,Leveranciernaam:m.leveranciernaam,Documentnr:m.documentnr,Documentsoort:m.documentsoort,Projectmap:m.projectmap,Route:m.route||'',Relatie:m.relatie||'',Samenvatting:m.samenvatting||'',WatMoetIkDoen:m.watmoetikdoen||'',Vervolgacties:String(m.vervolgacties||'').split(',').map(x=>x.trim()).filter(Boolean),Zekerheid:val(m.zekerheid)};
   fillFromItem(it2); ['obj','klant','lev','doc','map'].forEach(k=>state.src[k]='jij');
   $('subject').textContent=m.onderwerp||'(geen onderwerp)'; $('from').textContent=(m.van||'')+(m.datum?' · '+fmtD(m.datum):'');
   $('agentzegt').textContent='gearchiveerd'+(m.koppelbron?' · '+m.koppelbron:''); $('richting').textContent=val(m.richting)||'–';
-  $('samenvatting').textContent=''; $('todo').textContent=''; $('correctie').value=''; $('mapPlaats').value=m.plaats||'';
+  $('correctie').value=''; $('mapPlaats').value=m.plaats||''; state.route=String(m.route||'').charAt(0); $('leerAan').checked=false; $('leerInstructie').value=''; $('afspraakInfo').innerHTML=''; runLog(it2);
   ['objRes','klantRes','levRes','docRes','mapRes'].forEach(i=>$(i).innerHTML='');
   $('arcPdf').href=m.pdf||'#'; $('arcPdf').style.display=m.pdf?'':'none'; $('arcOutlook').href=m.outlook||'#'; $('arcOutlook').style.display=m.outlook?'':'none';
-  renderLabels([]); renderVervolg([]); renderAll();
+  renderRoutes(state.route); renderLabels([]); renderVervolg([]); renderAll();
   $('archief').style.display='none'; setMode('archiefmail','Wijzigingen gaan direct naar het archief. Inkomende mail staat los hiervan.');
   msg('','ok'); $('btnOk').disabled=false; $('btnSave').disabled=false; $('main').style.display='grid'; $('bar').style.display='grid'; window.scrollTo(0,0);
   toonMail(m.messageId,{onderwerp:m.onderwerp,van:m.van});
@@ -893,20 +915,21 @@ async function herkenInbox(e){
   }catch(err){ msg('Opnieuw herkennen mislukt: '+err.message,'err'); }
 }
 async function herken(){
-  const m=state.arc; if(!m) return; const b=$('btnHerken'); b.disabled=true; b.textContent='CENTRALE leest de mail…'; msg('De CENTRALE herkent deze archiefmail (±15 s)…','warn');
+  const m=state.arc; if(!m) return; const b=$('herkenOpnieuw'); b.style.pointerEvents='none'; b.textContent='CENTRALE leest de mail…'; msg('De CENTRALE herkent deze archiefmail (incl. bijlagen, ±20 s)…','warn');
   try{ const r=await api('archiefherkennen',{id:m.id}); if(!r.item) throw new Error(r.fout||'geen antwoord');
-    fillFromItem(r.item); renderLabels(vals(r.item.Labels)); renderVervolg(vals(r.item.Vervolgacties)); renderAll();
+    fillFromItem(r.item); const rl=(val(r.item.Route)||'').charAt(0); if(rl) state.route=rl; renderRoutes(rl); renderLabels(vals(r.item.Labels)); renderVervolg(vals(r.item.Vervolgacties)); renderAll(); runLog(r.item);
     const nk=['Objectnr','Klantnr','Leveranciernr','Documentnr','Projectmap'].filter(f=>r.item[f]).length;
     msg('De CENTRALE stelt '+nk+' koppeling'+(nk==1?'':'en')+' en '+vals(r.item.Labels).length+' label(s) voor. Controleer en klik Opslaan in archief.','ok');
     if(state.obj&&state.obj.plaats&&!state.map) searchMap(true);
   }catch(e){ msg('Herkennen mislukt: '+e.message,'err'); }
-  b.disabled=false; b.textContent='Laat de CENTRALE herkennen';
+  b.style.pointerEvents=''; b.textContent='laat de CENTRALE (opnieuw) herkennen';
 }
 async function saveArchief(){
   const m=state.arc; if(!m) return; $('btnSave').disabled=true; msg('Opslaan in archief…','warn');
   const body=Object.assign(koppelBody(),{id:m.id,bron:'Paneel archief'}); if(!state.obj&&m.objectnr) body.objectnr='-';
   try{ const r=await api('archiefwijzigen',body); if(!r.ok) throw new Error((r.fout||'onbekend').slice(0,200));
-    const o=state.obj||{}; Object.assign(m,{labels:r.labels||body.labels,objectnr:o.objectnr||'',objectnaam:o.naam||'',adres:o.adres||'',plaats:o.plaats||'',klantnr:body.klantnr,klant:body.klant,leveranciernr:body.leveranciernr,leveranciernaam:body.leveranciernaam,documentnr:body.documentnr,documentsoort:body.documentsoort,projectmap:body.projectmap});
+    if($('leerAan').checked&&!DEMO&&cfg.regels&&m.messageId){ try{ await api('regels',{actie:'maak',messageId:m.messageId,route:state.route,labels:canon([...state.labels]),instructie:$('leerInstructie').value.trim()}); }catch(e){} }
+    const o=state.obj||{}; Object.assign(m,{route:body.route||m.route,relatie:body.relatie,vervolgacties:body.vervolgacties,samenvatting:body.samenvatting,watmoetikdoen:body.watmoetikdoen,labels:r.labels||body.labels,objectnr:o.objectnr||'',objectnaam:o.naam||'',adres:o.adres||'',plaats:o.plaats||'',klantnr:body.klantnr,klant:body.klant,leveranciernr:body.leveranciernr,leveranciernaam:body.leveranciernaam,documentnr:body.documentnr,documentsoort:body.documentsoort,projectmap:body.projectmap});
     terugNaarArchief(); msg(DEMO?'Voorbeeldpagina: niets opgeslagen. In Outlook gaat dit direct naar het archief.':'',DEMO?'warn':'ok'); $('arcInfo').textContent=(DEMO?'(voorbeeld) ':'')+'Opgeslagen in archief'+(r.objectactie==='koppel'?' · map wordt verplaatst naar '+o.objectnr+(r.gesprek?' (+'+r.gesprek+' mail(s) uit hetzelfde gesprek)':''):'')+(r.geleerd?' · correctie vastgelegd om van te leren':'');
   }catch(e){ msg('Opslaan mislukt: '+e.message,'err'); }
   $('btnSave').disabled=false;
@@ -992,7 +1015,7 @@ Office.onReady(()=>{
   $('mapGo').onclick=()=>searchMap(false); $('mapPlaats').addEventListener('keydown',e=>{ if(e.key==='Enter') searchMap(false); });
   $('relatie').onchange=()=>{ state.relatie=$('relatie').value; };
   $('btnOk').onclick=()=>state.mode==='archief'?terugNaarArchief():save(true); $('btnSave').onclick=()=>state.mode==='archief'?saveArchief():save(false);
-  $('btnHerken').onclick=herken; $('herkenOpnieuw').onclick=herkenInbox; $('arcBack').onclick=e=>{ e.preventDefault(); terugNaarArchief(); }; $('webTerug').onclick=e=>{ e.preventDefault(); showWerklijst(); };
+  $('btnHerken').onclick=herken; $('herkenOpnieuw').onclick=e=>{ e.preventDefault(); if(state.mode==='archief') herken(); else herkenInbox(e); }; $('arcBack').onclick=e=>{ e.preventDefault(); terugNaarArchief(); }; $('webTerug').onclick=e=>{ e.preventDefault(); showWerklijst(); };
   document.querySelectorAll('.vt').forEach(t=>t.addEventListener('keydown',e=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); t.click(); } }));
   document.querySelectorAll('.vt').forEach(t=>t.onclick=()=>setView(t.dataset.v));
   $('arcGo').onclick=arcSearch; $('arcQ').addEventListener('keydown',e=>{ if(e.key==='Enter') arcSearch(); }); $('arcHelpBtn').onclick=arcHelp;
