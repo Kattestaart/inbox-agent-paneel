@@ -8,6 +8,7 @@
 <style>
   :root{--red:#A3141F;--ink:#1F2A30;--muted:#5c666c;--line:#dcd8d2;--bg:#f6f5f3;--surface:#fff;--soft:#f6e3e4;--ok:#2e7d4f;--ok-soft:#e2f1e8;--warn:#9a6a00;--warn-soft:#f7edd6;--steel:#2f4752;--steel-soft:#e4ebee}
   *{box-sizing:border-box}
+  [hidden]{display:none!important}
   body{margin:0;font-family:"Segoe UI",Arial,sans-serif;font-size:13px;color:var(--ink);background:var(--bg)}
   .wrap{padding:10px 12px 90px;display:grid;gap:10px}
   h1{font-size:15px;margin:0;display:flex;align-items:center;gap:8px}
@@ -97,7 +98,7 @@
   /* archief */
   .arclist{display:grid;gap:6px}
   .arc{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:7px 9px;display:grid;gap:4px}
-  .arc.deze{border-color:var(--red);box-shadow:inset 3px 0 0 var(--red)}
+  .arc.deze{border-color:var(--steel);box-shadow:inset 3px 0 0 var(--steel)}
   .arc .top{display:flex;justify-content:space-between;gap:6px;font-size:11px;color:var(--muted)}
   .arc .ond{font-weight:600;line-height:1.3;word-break:break-word}
   .arc .acts{display:flex;gap:10px;font-size:11.5px}
@@ -108,6 +109,17 @@
   .lb.Financieel{background:var(--ok-soft);color:var(--ok)} .lb.HR\/Personeel,.lb.Privé{background:#ece4f3;color:#5b3b7a}
   .lb.Overig,.lb.Nieuwsbrief\/Info,.lb.Systeem\/Melding{background:#eee;color:#666}
   .edit{border-top:1px dashed var(--line);padding-top:6px;display:grid;gap:6px}
+  /* modus: Inkomend (rood) / Archief (staal) */
+  .vt[data-v="archief"].on{color:var(--steel);border-bottom-color:var(--steel)}
+  .band{border-radius:6px;padding:7px 10px;font-size:11.5px;line-height:1.35;color:#fff;background:var(--red);display:flex;gap:8px;align-items:center}
+  .band b{letter-spacing:.08em;text-transform:uppercase;font-size:10.5px;white-space:nowrap}
+  body[data-mode="archief"] .band, body[data-mode="archiefmail"] .band{background:var(--steel)}
+  body[data-mode="archiefmail"] #main .card{border-left:3px solid var(--steel)}
+  body[data-mode="inkomend"] #main .card{border-left:3px solid var(--red)}
+  body[data-mode="archiefmail"] .bar{border-top:3px solid var(--steel)}
+  body[data-mode="inkomend"] .bar{border-top:3px solid var(--red)}
+  .btn.back{background:#e8ecee;color:var(--steel)}
+  .btn.steel{background:var(--steel);color:#fff}
   .edit .row2{display:flex;gap:6px}
 </style>
 </head>
@@ -122,7 +134,8 @@
     <button class="btn save" id="cfgSave">Opslaan</button>
   </div>
 
-  <div class="views" id="views"><div class="vt on" data-v="agent">Beoordeling</div><div class="vt" data-v="archief">Archief</div></div>
+  <div class="views" id="views"><div class="vt on" data-v="agent">📥 Inkomend</div><div class="vt" data-v="archief">🗄 Archief</div></div>
+  <div class="band" id="band"><b>Inkomend</b><span>Mail wordt gelezen…</span></div>
 
   <div id="status" class="msg warn">Mail wordt gelezen…</div>
 
@@ -148,12 +161,18 @@
       <div id="todo"></div>
     </div>
 
+    <div class="card" id="arcEditCard" hidden>
+      <div class="lbl">Archiefmail <a class="link" href="#" id="arcBack" style="text-transform:none;letter-spacing:0">← terug naar archief</a></div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center"><button class="btn steel" id="btnHerken" style="flex:1">🔍 Laat agent herkennen</button><a class="link tiny" id="arcPdf" target="_blank">↗ PDF</a><a class="link tiny" id="arcOutlook" target="_blank">↗ Outlook</a></div>
+      <div class="tiny">De agent doet hetzelfde als bij inkomende mail (BC-object, klant, leverancier, document, projectmap, labels) en stelt voor; er verandert pas iets als jij op <b>Opslaan in archief</b> klikt. Kost ±0,3 Copilot-credit.</div>
+    </div>
+
     <div class="card" id="logcard">
       <div class="lbl">Wat de agent deed <span class="live" id="bclive" hidden>Verbonden met Business Central</span></div>
       <div class="log" id="log"></div>
     </div>
 
-    <div class="card">
+    <div class="card" id="routecard">
       <div class="lbl">Route · wat moet ermee</div>
       <div class="chips" id="routes"></div>
     </div>
@@ -245,6 +264,7 @@ function demoApi(name,body){ const base=[
   if(name==='archiefzoeken') return Promise.resolve({modus:body.q?'zoeken':'context',items:body.q?base.slice(0,2):base});
   if(name==='archiefwijzigen') return Promise.resolve({ok:true,labels:body.labels,objectactie:body.objectnr&&body.objectnr!=='-'?'koppel':(body.objectnr==='-'?'los':'geen'),gesprek:body.objectnr&&body.objectnr!=='-'?1:0,geleerd:true});
   if(name==='objecten') return Promise.resolve([{objectnr:'OBJ002111',naam:'Ringerskwartier',adres:'Ringersstraat 10',plaats:'Alkmaar',klantnr:'5001188',klantnaam:'Blom Installatietechniek'}]);
+  if(name==='archiefherkennen') return Promise.resolve({ok:true,item:{Labels:[{Value:'Object'},{Value:'Techniek/Product'}],Objectnr:'OBJ002111',Objectnaam:'Ringerskwartier',Adres:'Ringersstraat 10',Plaats:'Alkmaar',Klantnr:'5001188',Klantnaam:'Blom Installatietechniek',Relatie:{Value:'Klant'},Samenvatting:'Ruud vraagt of de meterkasten gedetecteerd moeten worden.',WatMoetIkDoen:'Bevestigen volgens PvE.',Projectmap:'/sites/Projecten636/Gedeelde documenten/Algemeen/Alkmaar/Ringerskwartier'}});
   if(name==='labels') return Promise.resolve({labels:LABELS.concat(body.nieuw?[body.nieuw]:[]),toegevoegd:body.nieuw||''});
   if(name==='bczoeken') return Promise.resolve([]);
   return Promise.resolve([]); }
@@ -329,29 +349,43 @@ async function searchBC(soort,qid,rid,onPick){ const q=$(qid).value.trim(); if(q
 function scoreMap(naam){ const n=norm(naam); const words=new Set([...norm(state.obj&&state.obj.naam).split(' '),...norm(state.obj&&state.obj.adres).split(' ')].filter(w=>w.length>2&&!['van','der','den','het','een','appartementen','app','bv','b','v'].includes(w))); let s=0; words.forEach(w=>{ if(n.includes(w)) s++; }); return s; }
 async function searchMap(auto){ const plaats=$('mapPlaats').value.trim(); if(!plaats){ $('mapHint').textContent='Vul een plaats in.'; return; } $('mapRes').innerHTML='<span class="tiny">Mappen ophalen…</span>'; try{ let list=await api('projectmap',{plaats}); if(!list.length){ $('mapRes').innerHTML='<span class="tiny">Geen map "Algemeen/'+esc(plaats)+'" op de site Projecten. Bestaat de plaatsmap?</span>'; return; } const scored=list.map(m=>({...m,s:scoreMap(m.naam)})).sort((a,b)=>b.s-a.s); const best=scored[0].s>0?0:-1; $('mapHint').textContent=best>=0?'Beste match staat bovenaan (groen). Klik om te koppelen.':'Geen duidelijke match op naam/adres; kies zelf.'; resList('mapRes',scored,m=>'<b>'+esc(m.naam)+'</b> <span class="tiny">'+(m.s>0?'· match '+m.s:'')+' · '+esc(m.items)+' items</span>',m=>{ state.map=m; state.src.map='jij'; renderAll(); },best); if(auto&&best>=0&&scored[0].s>=2&&(scored.length<2||scored[1].s<scored[0].s)){ /* sterke match: alvast koppelen, gebruiker kan loskoppelen */ state.map=scored[0]; renderAll(); logAdd('SharePoint: projectmap gezocht in '+plaats, scored[0].naam); } }catch(e){ $('mapRes').innerHTML='<span class="msg err">'+esc(e.message)+'</span>'; } }
 
-function showMain(){ if(view==='agent'){ $('main').style.display='grid'; $('bar').style.display='grid'; } }
+function showMain(){ if(view==='agent'||state.mode==='archief'){ $('main').style.display='grid'; $('bar').style.display='grid'; } }
+function setMode(mode,tekst){
+  document.body.dataset.mode=mode;
+  const t={inkomend:'Inkomend',archief:'Archief',archiefmail:'Archiefmail'}[mode];
+  $('band').innerHTML='<b>'+t+'</b><span>'+esc(tekst||'')+'</span>';
+  const am=mode==='archiefmail';
+  $('arcEditCard').hidden=!am; $('routecard').hidden=am; $('logcard').hidden=am;
+  $('btnOk').className='btn '+(am?'back':'ok'); $('btnOk').textContent=am?'← Terug':'✓ Akkoord';
+  $('btnSave').textContent=am?'Opslaan in archief':'Opslaan'; $('btnSave').className='btn '+(am?'steel':'save');
+}
+function inkomendTekst(){ if(!item) return 'Nog niet door de agent gelezen — sleep hem naar INBOX Agent, of bekijk het archief.'; return item.Gecontroleerd?'✓ Door jou doorgezet. Je kunt nog aanpassen.':'Wacht op jouw akkoord — er gebeurt niets tot je hem doordrukt.'; }
+function fillFromItem(it2){
+  state.labels=new Set(vals(it2.Labels)); state.vervolg=new Set(vals(it2.Vervolgacties)); state.relatie=val(it2.Relatie)||'Onbekend'; $('relatie').value=state.relatie;
+  state.obj=it2.Objectnr?{objectnr:it2.Objectnr,naam:it2.Objectnaam,adres:it2.Adres,plaats:it2.Plaats,postcode:it2.Postcode,klantnr:it2.Klantnr,klantnaam:it2.Klantnaam}:null;
+  state.klant=it2.Klantnr?{nr:it2.Klantnr,naam:it2.Klantnaam,extra:''}:null;
+  state.lev=it2.Leveranciernr?{nr:it2.Leveranciernr,naam:it2.Leveranciernaam,extra:''}:null;
+  state.doc=it2.Documentnr?{soort:(val(it2.Documentsoort)||'').toLowerCase(),nr:it2.Documentnr,naam:'',extra:''}:null;
+  ['obj','klant','lev','doc','map'].forEach(k=>state.src[k]='agent');
+  state.map=it2.Projectmap?{naam:it2.Projectmap.split('/').pop(),pad:it2.Projectmap,url:'https://mmhbrandbeveiliging.sharepoint.com'+it2.Projectmap}:null;
+  $('samenvatting').textContent=it2.Samenvatting||''; $('todo').innerHTML=it2.WatMoetIkDoen?('<b>Te doen:</b> '+esc(it2.WatMoetIkDoen)):''; $('vervolgtoel').textContent=(it2.VervolgToelichting||'').replace(/\n/g,' · ');
+}
 async function load(){
   $('main').style.display='none'; $('bar').style.display='none'; arc.key='';
   if(!loadCfg()){ $('setup').style.display='grid'; msg('Eerst de API-configuratie instellen.','warn'); return; }
   $('setup').style.display='none'; loadLabels();
   const it=Office.context.mailbox.item; if(!it){ msg('Selecteer een mail.','warn'); return; }
   msg('Beslissing van de agent ophalen…','warn');
-  state=blank(); state.title=it.subject||''; state.outlookId=Office.context.mailbox.convertToRestId(it.itemId,Office.MailboxEnums.RestVersion.v2_0);
+  state=blank(); state.mode='inkomend'; state.title=it.subject||''; state.outlookId=Office.context.mailbox.convertToRestId(it.itemId,Office.MailboxEnums.RestVersion.v2_0);
   ['objRes','klantRes','levRes','docRes','mapRes'].forEach(i=>$(i).innerHTML=''); $('mapPlaats').value='';
   try{
     const d=await api('beslissing',{messageId:it.internetMessageId});
     $('subject').textContent=state.title; $('from').textContent=(it.from&&(it.from.displayName+' <'+it.from.emailAddress+'>'))||'';
-    if(!d.found){ item=null; msg('Deze mail is nog niet door de agent gelezen (staat hij in INBOX Agent?).','warn'); $('richting').textContent='–'; $('agentzegt').textContent='–'; $('samenvatting').textContent=''; $('todo').textContent=''; state.route='E'; renderRoutes(null); renderLabels([]); renderVervolg([]); renderAll(); showMain(); $('btnOk').disabled=true; $('btnSave').disabled=true; setView('archief'); return; }
+    if(!d.found){ item=null; msg('Deze mail is nog niet door de agent gelezen (staat hij in INBOX Agent?).','warn'); $('richting').textContent='–'; $('agentzegt').textContent='–'; $('samenvatting').textContent=''; $('todo').textContent=''; state.route='E'; renderRoutes(null); renderLabels([]); renderVervolg([]); renderAll(); showMain(); $('btnOk').disabled=true; $('btnSave').disabled=true; setMode('inkomend',inkomendTekst()); setView('archief'); return; }
     item=d.item; const agentRoute=(val(item.Route)||'G').charAt(0); const henkRoute=val(item.RouteHenk);
-    state.itemId=item.ID; state.route=(henkRoute||val(item.Route)||'G').charAt(0); state.labels=new Set(vals(item.Labels)); state.vervolg=new Set(vals(item.Vervolgacties)); state.relatie=val(item.Relatie)||'Onbekend'; $('relatie').value=state.relatie;
-    state.obj=item.Objectnr?{objectnr:item.Objectnr,naam:item.Objectnaam,adres:item.Adres,plaats:item.Plaats,klantnr:item.Klantnr,klantnaam:item.Klantnaam}:null;
-    state.klant=item.Klantnr?{nr:item.Klantnr,naam:item.Klantnaam,extra:''}:null;
-    state.lev=item.Leveranciernr?{nr:item.Leveranciernr,naam:item.Leveranciernaam,extra:''}:null;
-    state.doc=item.Documentnr?{soort:(val(item.Documentsoort)||'').toLowerCase(),nr:item.Documentnr,naam:'',extra:''}:null;
-    ['obj','klant','lev','doc','map'].forEach(k=>state.src[k]='agent');
-    state.map=item.Projectmap?{naam:item.Projectmap.split('/').pop(),pad:item.Projectmap,url:'https://mmhbrandbeveiliging.sharepoint.com'+item.Projectmap}:null;
+    state.itemId=item.ID; state.route=(henkRoute||val(item.Route)||'G').charAt(0); fillFromItem(item);
     $('richting').textContent=val(item.Richting)||'–'; $('agentzegt').textContent=(val(item.Route)||'')+' · zekerheid '+(val(item.Zekerheid)||'?')+(item.Gecontroleerd?' · ✓ gecontroleerd':'');
-    $('samenvatting').textContent=item.Samenvatting||''; $('todo').innerHTML=item.WatMoetIkDoen?('<b>Te doen:</b> '+esc(item.WatMoetIkDoen)):''; $('vervolgtoel').textContent=(item.VervolgToelichting||'').replace(/\n/g,' · '); $('correctie').value=item.Correctie||'';
+    $('correctie').value=item.Correctie||''; if(view==='agent') setMode('inkomend',inkomendTekst());
     runLog(item);
     renderRoutes(agentRoute); renderLabels(vals(item.Labels)); renderVervolg(vals(item.Vervolgacties)); renderAll();
     const nk=['Objectnr','Klantnr','Leveranciernr','Documentnr','Projectmap'].filter(f=>item[f]).length;
@@ -366,7 +400,10 @@ async function save(akkoord){
   const o=state.obj||{}, k=state.klant||{}, l=state.lev||{}, d=state.doc||{}, m=state.map||{};
   try{
     const r=await api('opslaan',{itemId:state.itemId,outlookId:state.outlookId,title:state.title,route:state.route,labels:[...state.labels],objectnr:o.objectnr||'',objectnaam:o.naam||'',adres:o.adres||'',plaats:o.plaats||'',klantnr:k.nr||o.klantnr||'',klantnaam:k.naam||o.klantnaam||'',leveranciernr:l.nr||'',leveranciernaam:l.naam||'',documentnr:d.nr||'',documentsoort:d.soort?(DOCLBL[d.soort]||''):'',projectmap:m.pad||'',projectmapNaam:m.naam||'',relatie:$('relatie').value,correctie:$('correctie').value.trim(),vervolgacties:[...state.vervolg]});
-    msg((akkoord?'Akkoord vastgelegd':'Opgeslagen')+' · '+(r.categorieen||[]).join(', ')+(r.verplaatst==='Succeeded'?' · mail verplaatst':''),'ok');
+    let extra='';
+    if(!DEMO&&cfg.archiefwijzigen){ try{ const it=Office.context.mailbox.item; const a=await api('archiefwijzigen',Object.assign(koppelBody(),{messageId:it.internetMessageId,bron:akkoord?'Inkomend (akkoord)':'Inkomend'})); if(a.gevonden&&a.ok) extra=' · ook in archief bijgewerkt'; }catch(e){} }
+    msg((akkoord?'Akkoord vastgelegd':'Opgeslagen')+' · '+(r.categorieen||[]).join(', ')+(r.verplaatst==='Succeeded'?' · mail verplaatst':'')+extra,'ok');
+    if(akkoord&&item){ item.Gecontroleerd=true; setMode('inkomend',inkomendTekst()); }
   }catch(e){ msg('Opslaan mislukt: '+e.message,'err'); }
   $('btnOk').disabled=false; $('btnSave').disabled=false;
 }
@@ -392,8 +429,8 @@ function setView(v){
   view=v; document.querySelectorAll('.vt').forEach(t=>t.classList.toggle('on',t.dataset.v===v));
   const ag=v==='agent';
   $('archief').style.display=ag?'none':'grid';
-  if(ag){ if(state.itemId!=null||$('subject').textContent){ $('main').style.display='grid'; $('bar').style.display='grid'; } }
-  else { $('main').style.display='none'; $('bar').style.display='none'; loadArchief(false); }
+  if(ag){ if(state.mode!=='inkomend'){ if(DEMO){ demo(); return; } load(); return; } setMode('inkomend',inkomendTekst()); if(state.itemId!=null||$('subject').textContent){ $('main').style.display='grid'; $('bar').style.display='grid'; } }
+  else { if(state.mode==='archief') return; $('main').style.display='none'; $('bar').style.display='none'; setMode('archief','Zoek en corrigeer gearchiveerde mail. Klik ✎ om een mail te openen.'); loadArchief(false); }
 }
 function mailCtx(){
   if(DEMO) return {messageId:'<m0>',conversatieId:'c1',van:'ruud@blom-installatie.nl',objectnr:(state.obj&&state.obj.objectnr)||''};
@@ -437,60 +474,61 @@ function renderArchief(){
     const acts=document.createElement('div'); acts.className='acts';
     if(m.outlook){ const a=document.createElement('a'); a.href=m.outlook; a.target='_blank'; a.textContent='↗ Outlook'; a.title='Origineel openen (beantwoorden/doorsturen)'; acts.appendChild(a); }
     if(m.pdf){ const a=document.createElement('a'); a.href=m.pdf; a.target='_blank'; a.textContent='↗ PDF'; a.title='Mail met bijlagen in het archief'; acts.appendChild(a); }
-    const e=document.createElement('a'); e.textContent=arc.open===m.id?'sluiten':'✎ Wijzig'; e.onclick=()=>{ arc.open=arc.open===m.id?null:m.id; renderArchief(); }; acts.appendChild(e);
+    const e=document.createElement('a'); e.textContent='✎ Wijzig / herkennen'; e.onclick=()=>openArchiefMail(m); acts.appendChild(e);
     d.appendChild(acts);
-    if(arc.open===m.id) d.appendChild(editor(m));
     c.appendChild(d);
   });
 }
-function editor(m){
-  const ed=document.createElement('div'); ed.className='edit';
-  const sel=new Set(vals(m.labels)); let obj=null; let los=false;
-  const lab=document.createElement('div'); lab.className='chips';
-  const drawL=()=>{ lab.innerHTML=''; LABELS.forEach(l=>lab.appendChild(chip(l,sel.has(l),'small',()=>{ sel.has(l)?sel.delete(l):sel.add(l); drawL(); }))); lab.appendChild(newLabelChip(n=>{ if(n) sel.add(n); drawL(); })); };
-  drawL();
-  const oc=document.createElement('div'); oc.className='tiny';
-  const drawO=()=>{ oc.innerHTML=obj?('Nieuw object: <b>'+esc(obj.objectnr)+'</b> '+esc(obj.naam||'')+(obj.plaats?' · '+esc(obj.plaats):'')):(los?'<b>Object loskoppelen</b> (mail blijft in zijn map staan)':(m.objectnr?'Object: <b>'+esc(m.objectnr)+'</b> '+esc(m.objectnaam||''):'Geen object gekoppeld')); };
-  drawO();
-  const row=document.createElement('div'); row.className='row2';
-  const qi=document.createElement('input'); qi.type='text'; qi.placeholder='Ander object: naam, plaats, adres of OBJ…';
-  const qb=document.createElement('button'); qb.className='btn sm'; qb.textContent='Zoek';
-  row.appendChild(qi); row.appendChild(qb);
-  const res=document.createElement('div'); res.className='res';
-  const zoek=async()=>{ const q=qi.value.trim(); if(q.length<2) return; res.innerHTML='<span class="tiny">Zoeken in BC-objecten…</span>'; try{ const list=await api('objecten',{q}); res.innerHTML=''; if(!list.length){ res.innerHTML='<span class="tiny">Niets gevonden.</span>'; return; } list.forEach(o=>{ const b=document.createElement('button'); b.innerHTML='<b>'+esc(o.objectnr)+'</b> '+esc(o.naam||'')+'<br><span class="tiny">'+esc([o.adres,o.plaats].filter(Boolean).join(', '))+(o.klantnaam?' · '+esc(o.klantnaam):'')+'</span>'; b.onclick=()=>{ obj=o; los=false; sel.add('Object'); drawL(); drawO(); res.innerHTML=''; qi.value=''; }; res.appendChild(b); }); }catch(err){ res.innerHTML='<span class="msg err">'+esc(err.message)+'</span>'; } };
-  qb.onclick=zoek; qi.addEventListener('keydown',ev=>{ if(ev.key==='Enter') zoek(); });
-  const lk=document.createElement('a'); lk.className='link tiny'; lk.href='#'; lk.textContent=m.objectnr?'geen object (loskoppelen)':''; lk.onclick=ev=>{ ev.preventDefault(); obj=null; los=true; sel.delete('Object'); drawL(); drawO(); };
-  const wa=document.createElement('textarea'); wa.placeholder='Waarom (helpt het archief leren) — bijv. "lease-mail = HR, adres in handtekening is geen object"';
-  const btns=document.createElement('div'); btns.className='row2';
-  const ok=document.createElement('button'); ok.className='btn save'; ok.style.flex='1'; ok.textContent='Opslaan in archief';
-  const st=document.createElement('div');
-  ok.onclick=async()=>{
-    ok.disabled=true; st.className='msg warn'; st.textContent='Opslaan…';
-    const body={id:m.id,labels:canon([...sel]),waarom:wa.value.trim(),bron:'Paneel'};
-    if(obj) Object.assign(body,{objectnr:obj.objectnr,objectnaam:obj.naam||'',adres:obj.adres||'',postcode:obj.postcode||'',plaats:obj.plaats||'',klantnr:obj.klantnr||'',klant:obj.klantnaam||''});
-    else if(los) body.objectnr='-';
-    try{ const r=await api('archiefwijzigen',body);
-      if(!r.ok){ st.className='msg err'; st.textContent='Niet gelukt: '+(r.fout||'onbekend').slice(0,200); ok.disabled=false; return; }
-      m.labels=r.labels||body.labels; if(obj){ m.objectnr=obj.objectnr; m.objectnaam=obj.naam; } if(los){ m.objectnr=''; m.objectnaam=''; }
-      arc.open=null; renderArchief();
-      $('arcInfo').textContent='Opgeslagen'+(r.objectactie==='koppel'?' · map wordt verplaatst naar '+body.objectnr+(r.gesprek?' (+'+r.gesprek+' mail(s) uit hetzelfde gesprek)':''):'')+(r.geleerd?' · correctie vastgelegd om van te leren':'');
-    }catch(err){ st.className='msg err'; st.textContent='Opslaan mislukt: '+err.message; ok.disabled=false; }
-  };
-  btns.appendChild(ok);
-  [lab,oc,row,res,lk,wa,btns,st].forEach(x=>ed.appendChild(x));
-  return ed;
+function koppelBody(){
+  const o=state.obj||{}, k=state.klant||{}, l=state.lev||{}, d=state.doc||{}, m=state.map||{};
+  const b={labels:canon([...state.labels]),waarom:$('correctie').value.trim(),klantnr:k.nr||o.klantnr||'',klant:k.naam||o.klantnaam||'',leveranciernr:l.nr||'',leveranciernaam:l.naam||'',documentnr:d.nr||'',documentsoort:d.soort?(DOCLBL[d.soort]||d.soort):'',projectmap:m.pad||''};
+  if(o.objectnr) Object.assign(b,{objectnr:o.objectnr,objectnaam:o.naam||'',adres:o.adres||'',postcode:o.postcode||'',plaats:o.plaats||''});
+  return b;
+}
+function openArchiefMail(m){
+  state=blank(); state.mode='archief'; state.arc=m; item=null;
+  const it2={Labels:m.labels,Objectnr:m.objectnr,Objectnaam:m.objectnaam,Adres:m.adres,Plaats:m.plaats,Postcode:m.postcode,Klantnr:m.klantnr,Klantnaam:m.klant,Leveranciernr:m.leveranciernr,Leveranciernaam:m.leveranciernaam,Documentnr:m.documentnr,Documentsoort:m.documentsoort,Projectmap:m.projectmap};
+  fillFromItem(it2); ['obj','klant','lev','doc','map'].forEach(k=>state.src[k]='jij');
+  $('subject').textContent=m.onderwerp||'(geen onderwerp)'; $('from').textContent=(m.van||'')+(m.datum?' · '+fmtD(m.datum):'');
+  $('agentzegt').textContent='gearchiveerd'+(m.koppelbron?' · '+m.koppelbron:''); $('richting').textContent=val(m.richting)||'–';
+  $('samenvatting').textContent=''; $('todo').textContent=''; $('correctie').value=''; $('mapPlaats').value=m.plaats||'';
+  ['objRes','klantRes','levRes','docRes','mapRes'].forEach(i=>$(i).innerHTML='');
+  $('arcPdf').href=m.pdf||'#'; $('arcPdf').style.display=m.pdf?'':'none'; $('arcOutlook').href=m.outlook||'#'; $('arcOutlook').style.display=m.outlook?'':'none';
+  renderLabels([]); renderVervolg([]); renderAll();
+  $('archief').style.display='none'; setMode('archiefmail','Wijzigingen gaan direct naar het archief. Inkomende mail staat los hiervan.');
+  msg('','ok'); $('btnOk').disabled=false; $('btnSave').disabled=false; $('main').style.display='grid'; $('bar').style.display='grid'; window.scrollTo(0,0);
+}
+function terugNaarArchief(){ state=blank(); $('main').style.display='none'; $('bar').style.display='none'; $('archief').style.display='grid'; setMode('archief','Zoek en corrigeer gearchiveerde mail. Klik ✎ om een mail te openen.'); renderArchief(); }
+async function herken(){
+  const m=state.arc; if(!m) return; const b=$('btnHerken'); b.disabled=true; b.textContent='Agent leest de mail…'; msg('De agent herkent deze archiefmail (±15 s)…','warn');
+  try{ const r=await api('archiefherkennen',{id:m.id}); if(!r.item) throw new Error(r.fout||'geen antwoord');
+    fillFromItem(r.item); renderLabels(vals(r.item.Labels)); renderVervolg(vals(r.item.Vervolgacties)); renderAll();
+    const nk=['Objectnr','Klantnr','Leveranciernr','Documentnr','Projectmap'].filter(f=>r.item[f]).length;
+    msg('De agent stelt '+nk+' koppeling'+(nk==1?'':'en')+' en '+vals(r.item.Labels).length+' label(s) voor. Controleer en klik Opslaan in archief.','ok');
+    if(state.obj&&state.obj.plaats&&!state.map) searchMap(true);
+  }catch(e){ msg('Herkennen mislukt: '+e.message,'err'); }
+  b.disabled=false; b.textContent='🔍 Laat agent herkennen';
+}
+async function saveArchief(){
+  const m=state.arc; if(!m) return; $('btnSave').disabled=true; msg('Opslaan in archief…','warn');
+  const body=Object.assign(koppelBody(),{id:m.id,bron:'Paneel archief'}); if(!state.obj&&m.objectnr) body.objectnr='-';
+  try{ const r=await api('archiefwijzigen',body); if(!r.ok) throw new Error((r.fout||'onbekend').slice(0,200));
+    const o=state.obj||{}; Object.assign(m,{labels:r.labels||body.labels,objectnr:o.objectnr||'',objectnaam:o.naam||'',adres:o.adres||'',plaats:o.plaats||'',klantnr:body.klantnr,klant:body.klant,leveranciernr:body.leveranciernr,leveranciernaam:body.leveranciernaam,documentnr:body.documentnr,documentsoort:body.documentsoort,projectmap:body.projectmap});
+    terugNaarArchief(); msg('','ok'); $('arcInfo').textContent='Opgeslagen in archief'+(r.objectactie==='koppel'?' · map wordt verplaatst naar '+o.objectnr+(r.gesprek?' (+'+r.gesprek+' mail(s) uit hetzelfde gesprek)':''):'')+(r.geleerd?' · correctie vastgelegd om van te leren':'');
+  }catch(e){ msg('Opslaan mislukt: '+e.message,'err'); }
+  $('btnSave').disabled=false;
 }
 function arcSearch(){ const q=$('arcQ').value.trim(); if(q.length<2){ loadArchief(true); return; } loadArchief(true,q); }
 
 function demo(){
-  DEMO=true; loadLabels();
+  DEMO=true; loadLabels(); view='agent'; document.querySelectorAll('.vt').forEach(t=>t.classList.toggle('on',t.dataset.v==='agent')); $('archief').style.display='none';
   // Voorbeeldweergave buiten Outlook (?demo=1): toont hoe het paneel eruitziet met een echte beslissing.
   item={ID:0,Route:{Value:'C Beantwoorden'},Zekerheid:{Value:'Hoog'},Richting:{Value:'Inkomend'},Labels:[{Value:'Object'},{Value:'Service/Support'}],Vervolgacties:[{Value:'Taak collega'}],Relatie:{Value:'Klant'},
     Objectnr:'OBJ002111',Objectnaam:'Ringerskwartier',Adres:'Ringersstraat 10',Plaats:'Alkmaar',Klantnr:'5001188',Klantnaam:'Blom Installatietechniek',Projectmap:'/sites/Projecten636/Gedeelde documenten/Algemeen/Alkmaar/Ringerskwartier',
     Samenvatting:'Ruud (Blom) vraagt of de meterkasten in het Ringerskwartier volgens het PvE gedetecteerd moeten worden; hij wil dit deze week bevestigd hebben voor de werkvoorbereiding.',
     WatMoetIkDoen:'Bevestigen aan Ruud of de meterkasten buiten de detectie vallen (PvE §4.2) en Planning informeren.',VervolgToelichting:'Taak collega: Planning laat de monteur de meterkasten overslaan.',Correctie:''};
   $('who').textContent='henk.kattestaart@dfsg.nl (voorbeeld)'; $('setup').style.display='none';
-  state=blank(); state.title='RE: Ringerskwartier Alkmaar – meterkasten detectie'; $('subject').textContent=state.title; $('from').textContent='Ruud de Jong <ruud@blom-installatie.nl>';
+  state=blank(); state.mode='inkomend'; state.title='RE: Ringerskwartier Alkmaar – meterkasten detectie'; $('subject').textContent=state.title; $('from').textContent='Ruud de Jong <ruud@blom-installatie.nl>';
   state.itemId=0; state.route='C'; state.labels=new Set(vals(item.Labels)); state.vervolg=new Set(vals(item.Vervolgacties)); state.relatie='Klant'; $('relatie').value='Klant';
   state.obj={objectnr:item.Objectnr,naam:item.Objectnaam,adres:item.Adres,plaats:item.Plaats,klantnr:item.Klantnr,klantnaam:item.Klantnaam};
   state.klant={nr:item.Klantnr,naam:item.Klantnaam,extra:''}; state.lev=null; state.doc={soort:'offerte',nr:'VOF26-0412',naam:'Uitbreiding BMI Ringerskwartier',extra:'€ 4.850 · open'};
@@ -500,9 +538,11 @@ function demo(){
   renderRoutes('C'); renderLabels(vals(item.Labels)); renderVervolg(vals(item.Vervolgacties)); renderAll();
   document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{ document.querySelectorAll('.tab').forEach(x=>x.classList.remove('on')); document.querySelectorAll('.pane').forEach(x=>x.classList.remove('on')); t.classList.add('on'); $('p-'+t.dataset.t).classList.add('on'); });
   msg('Voorbeeldweergave: zo ziet het paneel eruit naast een geopende mail in Outlook. Knoppen doen hier niets.','ok');
+  item.Gecontroleerd=false; setMode('inkomend',inkomendTekst()); $('btnHerken').onclick=herken; $('arcBack').onclick=e=>{ e.preventDefault(); terugNaarArchief(); };
+  $('btnOk').onclick=()=>state.mode==='archief'?terugNaarArchief():msg('In Outlook zet Akkoord de categorieën, verplaatst de mail en maakt bij route C het conceptantwoord.','ok'); $('btnSave').onclick=()=>state.mode==='archief'?saveArchief():$('btnOk').onclick();
   document.querySelectorAll('.vt').forEach(t=>t.onclick=()=>setView(t.dataset.v)); $('arcGo').onclick=arcSearch; $('arcQ').addEventListener('keydown',e=>{ if(e.key==='Enter') arcSearch(); });
   if(/[?&]view=archief/.test(location.search)) setTimeout(()=>setView('archief'),50);
-  $('main').style.display='grid'; $('bar').style.display='grid'; $('btnOk').onclick=()=>msg('In Outlook zet Akkoord de categorieën, verplaatst de mail en maakt bij route C het conceptantwoord.','ok'); $('btnSave').onclick=$('btnOk').onclick;
+  $('main').style.display='grid'; $('bar').style.display='grid';
 }
 Office.onReady(()=>{
   // Live-stand buiten Outlook (#live=<base64 json {cfg,mid,subject,fromName,fromMail}>): echte beoordeling ophalen en tonen
@@ -527,7 +567,8 @@ Office.onReady(()=>{
   $('docGo').onclick=()=>{ const s=$('docSoort').value; searchBC(s,'docQ','docRes',o=>{state.doc={...o,soort:s}; const lab=DOCLABEL[s]; if(lab){state.labels.add(lab); renderLabels(item&&vals(item.Labels));}}); }; $('docQ').addEventListener('keydown',e=>{ if(e.key==='Enter') $('docGo').onclick(); });
   $('mapGo').onclick=()=>searchMap(false); $('mapPlaats').addEventListener('keydown',e=>{ if(e.key==='Enter') searchMap(false); });
   $('relatie').onchange=()=>{ state.relatie=$('relatie').value; };
-  $('btnOk').onclick=()=>save(true); $('btnSave').onclick=()=>save(false);
+  $('btnOk').onclick=()=>state.mode==='archief'?terugNaarArchief():save(true); $('btnSave').onclick=()=>state.mode==='archief'?saveArchief():save(false);
+  $('btnHerken').onclick=herken; $('arcBack').onclick=e=>{ e.preventDefault(); terugNaarArchief(); };
   document.querySelectorAll('.vt').forEach(t=>t.onclick=()=>setView(t.dataset.v));
   $('arcGo').onclick=arcSearch; $('arcQ').addEventListener('keydown',e=>{ if(e.key==='Enter') arcSearch(); });
   try{ Office.context.mailbox.addHandlerAsync(Office.EventType.ItemChanged,()=>load()); }catch(e){}
