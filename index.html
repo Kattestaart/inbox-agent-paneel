@@ -241,6 +241,8 @@
   #lzInhoud{flex:1;min-height:0;position:relative}
   #lzInhoud iframe,#lzInhoud img{width:100%;height:100%;border:0;display:block;background:#fff}
   #lzInhoud img{object-fit:contain;background:#f5f5f5}
+  .lz-pdf{position:absolute;inset:0;overflow:auto;background:#e8e8e8;padding:16px;display:grid;gap:12px;justify-items:center;align-content:start}
+  .lz-pdf canvas{background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.2);max-width:100%;height:auto}
   .lz-leeg{padding:24px;color:var(--f-text2);font-size:14px}
   @media (max-width:1000px){ body.web.lees{grid-template-columns:1fr} body.web.lees #lezer{position:static;height:70vh} body.web.lees .bar{width:100%} }
 </style>
@@ -743,13 +745,27 @@ function lzToon(wat){
         if(nm.endsWith('.pdf')) type='application/pdf'; else if(/\.(png)$/.test(nm)) type='image/png'; else if(/\.(jpe?g)$/.test(nm)) type='image/jpeg'; else if(/\.(gif)$/.test(nm)) type='image/gif';
         b.type=type; b.url=URL.createObjectURL(new Blob([u8],{type})); lz.urls.push(b.url); }
       if(lz.actief!==wat) return; c.innerHTML='';
-      if(b.type==='application/pdf'){ const f=document.createElement('iframe'); f.title=b.name; f.src=b.url; c.appendChild(f); }
+      if(b.type==='application/pdf'){ await lzPdf(b,c); }
       else if(/^image\//.test(b.type)){ const i=document.createElement('img'); i.alt=b.name; i.src=b.url; c.appendChild(i); }
       else { c.innerHTML='<div class="lz-leeg">Dit bestand kan de browser niet tonen. <a class="link" download="'+esc(b.name)+'" href="'+b.url+'">'+esc(b.name)+' downloaden</a></div>'; }
       const t=$('lzTabs').querySelector('a'); if(t){ t.href=b.url; t.setAttribute('download',b.name); t.textContent='↓ '+b.name; t.hidden=false; }
     }catch(e){ c.innerHTML='<div class="lz-leeg">Bijlage openen mislukt: '+esc(e.message)+'</div>'; }
   })();
   return;
+}
+let pdfjsLaden=null;
+function laadPdfjs(){ if(window.pdfjsLib) return Promise.resolve(window.pdfjsLib); if(pdfjsLaden) return pdfjsLaden;
+  pdfjsLaden=new Promise((ok,nok)=>{ const sc=document.createElement('script'); sc.src='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+    sc.onload=()=>{ window.pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js'; ok(window.pdfjsLib); }; sc.onerror=()=>nok(new Error('PDF-lezer kon niet laden')); document.head.appendChild(sc); });
+  return pdfjsLaden; }
+async function lzPdf(b,c){
+  const lib=await laadPdfjs(); const data=await fetch(b.url).then(r=>r.arrayBuffer());
+  const doc=await lib.getDocument({data}).promise; if(lz.actief!==b.id) return;
+  const w=document.createElement('div'); w.className='lz-pdf'; c.innerHTML=''; c.appendChild(w);
+  const breed=Math.max(300,w.clientWidth-32);
+  for(let n=1;n<=doc.numPages&&n<=40;n++){ if(lz.actief!==b.id) return; const pg=await doc.getPage(n); const v0=pg.getViewport({scale:1}); const sc=Math.min(2,breed/v0.width)*(window.devicePixelRatio||1); const v=pg.getViewport({scale:sc});
+    const cv=document.createElement('canvas'); cv.width=v.width; cv.height=v.height; cv.style.width=(v.width/(window.devicePixelRatio||1))+'px'; w.appendChild(cv); await pg.render({canvasContext:cv.getContext('2d'),viewport:v}).promise; }
+  if(doc.numPages>40){ const t=document.createElement('div'); t.className='lz-leeg'; t.textContent='Eerste 40 van '+doc.numPages+' pagina\'s getoond. Download het bestand voor de rest.'; w.appendChild(t); }
 }
 function lzTabs(){
   const t=$('lzTabs'); t.innerHTML='';
