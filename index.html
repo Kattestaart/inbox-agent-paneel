@@ -224,7 +224,7 @@
 <script>
 const ROUTES=[['A','Archief'],['B','Administratie'],['C','Antwoord'],['D','Besluit'],['E','Lezen'],['F','Privé'],['G','Twijfel']];
 let showAllLabels=false;
-const LABELS=['Object','Service/Support','Techniek/Product','Offerte','Order/Inkoop','Financieel','HR/Personeel','Pilotsafe','Systeem/Melding','Privé','Juridisch/Contract','Leverancier','Planning','Nieuwsbrief/Info','Overig'];
+let LABELS=['Object','Service/Support','Techniek/Product','Offerte','Order/Inkoop','Financieel','HR/Personeel','Pilotsafe','Systeem/Melding','Privé','Juridisch/Contract','Leverancier','Planning','Nieuwsbrief/Info','Overig'];
 const VERVOLG=['Agendapunt MT','Taak collega','Opvolgen/wachten op','Deadline/agenda','Verbeterpunt organisatie'];
 const DOCLBL={offerte:'Offerte',order:'Order',factuur:'Factuur',creditnota:'Creditnota',inkooporder:'Inkooporder',inkoopfactuur:'Inkoopfactuur',project:'Project',servicecontract:'Servicecontract',serviceorder:'Serviceorder',verkoop:'Verkoop'};
 const DOCLABEL={offerte:'Offerte',order:'Order/Inkoop',factuur:'Financieel',creditnota:'Financieel',inkooporder:'Order/Inkoop',inkoopfactuur:'Financieel',project:'Object',servicecontract:'Service/Support',serviceorder:'Service/Support'};
@@ -245,6 +245,7 @@ function demoApi(name,body){ const base=[
   if(name==='archiefzoeken') return Promise.resolve({modus:body.q?'zoeken':'context',items:body.q?base.slice(0,2):base});
   if(name==='archiefwijzigen') return Promise.resolve({ok:true,labels:body.labels,objectactie:body.objectnr&&body.objectnr!=='-'?'koppel':(body.objectnr==='-'?'los':'geen'),gesprek:body.objectnr&&body.objectnr!=='-'?1:0,geleerd:true});
   if(name==='objecten') return Promise.resolve([{objectnr:'OBJ002111',naam:'Ringerskwartier',adres:'Ringersstraat 10',plaats:'Alkmaar',klantnr:'5001188',klantnaam:'Blom Installatietechniek'}]);
+  if(name==='labels') return Promise.resolve({labels:LABELS.concat(body.nieuw?[body.nieuw]:[]),toegevoegd:body.nieuw||''});
   if(name==='bczoeken') return Promise.resolve([]);
   return Promise.resolve([]); }
 async function api(name,body){ if(DEMO) return demoApi(name,body); if(!cfg[name]) throw new Error('Configuratie mist "'+name+'" — plak de nieuwste configuratie bij Instellingen.'); const r=await fetch(cfg[name],{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify(body)}); if(!r.ok) throw new Error('API '+name+' '+r.status); return r.json(); }
@@ -256,7 +257,7 @@ const vals=a=>Array.isArray(a)?a.map(val):[];
 const norm=s=>String(s||'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
 
 function renderRoutes(agent){ const c=$('routes'); c.innerHTML=''; ROUTES.forEach(([k,n])=>c.appendChild(chip(k+' '+n,state.route===k,'route'+(agent===k?' agent':''),()=>{state.route=k;renderRoutes(agent);}))); }
-function renderLabels(agent){ const c=$('labels'); c.innerHTML=''; const show=LABELS.filter(l=>showAllLabels||state.labels.has(l)||(agent||[]).includes(l)); show.forEach(l=>c.appendChild(chip(l,state.labels.has(l),(agent||[]).includes(l)?'agent':'',()=>{ state.labels.has(l)?state.labels.delete(l):state.labels.add(l); renderLabels(agent); }))); c.appendChild(chip(showAllLabels?'minder':'+ label',false,'more',()=>{ showAllLabels=!showAllLabels; renderLabels(agent); })); }
+function renderLabels(agent){ const c=$('labels'); c.innerHTML=''; const show=LABELS.filter(l=>showAllLabels||state.labels.has(l)||(agent||[]).includes(l)); show.forEach(l=>c.appendChild(chip(l,state.labels.has(l),(agent||[]).includes(l)?'agent':'',()=>{ state.labels.has(l)?state.labels.delete(l):state.labels.add(l); renderLabels(agent); }))); c.appendChild(chip(showAllLabels?'minder':'+ label',false,'more',()=>{ showAllLabels=!showAllLabels; renderLabels(agent); })); if(showAllLabels) c.appendChild(newLabelChip(n=>{ if(n) state.labels.add(n); renderLabels(agent); })); }
 function renderKoppel(){
   const c=$('koppel'); c.innerHTML='';
   const SP='https://mmhbrandbeveiliging.sharepoint.com';
@@ -332,7 +333,7 @@ function showMain(){ if(view==='agent'){ $('main').style.display='grid'; $('bar'
 async function load(){
   $('main').style.display='none'; $('bar').style.display='none'; arc.key='';
   if(!loadCfg()){ $('setup').style.display='grid'; msg('Eerst de API-configuratie instellen.','warn'); return; }
-  $('setup').style.display='none';
+  $('setup').style.display='none'; loadLabels();
   const it=Office.context.mailbox.item; if(!it){ msg('Selecteer een mail.','warn'); return; }
   msg('Beslissing van de agent ophalen…','warn');
   state=blank(); state.title=it.subject||''; state.outlookId=Office.context.mailbox.convertToRestId(it.itemId,Office.MailboxEnums.RestVersion.v2_0);
@@ -371,8 +372,22 @@ async function save(akkoord){
 }
 /* ---------- Archief-tab ---------- */
 let view='agent', arc={ctx:null,items:[],open:null,on:new Set(['deze','gesprek','afzender','object']),key:''};
-const ALL_LABELS=LABELS.concat(['Project']);
-const canon=a=>ALL_LABELS.filter(l=>a.includes(l)).concat(a.filter(l=>!ALL_LABELS.includes(l)));
+const canon=a=>{ const all=LABELS.concat(['Project']); return all.filter(l=>a.includes(l)).concat(a.filter(l=>!all.includes(l))); };
+/* labels: centrale lijst (archief + Inbox Agent) ophalen en nieuwe labels toevoegen */
+let labelsLoaded=false;
+async function loadLabels(){ if(labelsLoaded||(!DEMO&&!(cfg&&cfg.labels))) return; labelsLoaded=true; try{ const r=await api('labels',{}); (r.labels||[]).forEach(l=>{ if(l!=='Project'&&!LABELS.includes(l)) LABELS.push(l); }); }catch(e){ labelsLoaded=false; } }
+function newLabelChip(onAdded){
+  const wrap=document.createElement('span'); wrap.style.display='inline-flex'; wrap.style.gap='4px';
+  const c=chip('+ nieuw label',false,'more small',()=>{
+    if(!DEMO&&!(cfg&&cfg.labels)){ c.textContent='plak eerst de nieuwste configuratie'; return; }
+    wrap.innerHTML=''; const i=document.createElement('input'); i.type='text'; i.placeholder='Naam nieuw label'; i.maxLength=40; i.style.width='140px'; i.style.padding='3px 6px';
+    const b=document.createElement('button'); b.className='btn sm'; b.textContent='Toevoegen'; b.style.padding='3px 8px';
+    const go=async()=>{ const n=i.value.trim().replace(/[;#]/g,' ').trim(); if(n.length<2) return; b.disabled=true; b.textContent='…';
+      try{ await api('labels',{nieuw:n}); if(!LABELS.includes(n)) LABELS.push(n); onAdded(n); }catch(e){ b.disabled=false; b.textContent='Opnieuw'; i.title=e.message; } };
+    b.onclick=go; i.addEventListener('keydown',e=>{ if(e.key==='Enter') go(); if(e.key==='Escape') onAdded(null); });
+    wrap.appendChild(i); wrap.appendChild(b); i.focus(); });
+  wrap.appendChild(c); return wrap;
+}
 function setView(v){
   view=v; document.querySelectorAll('.vt').forEach(t=>t.classList.toggle('on',t.dataset.v===v));
   const ag=v==='agent';
@@ -432,7 +447,7 @@ function editor(m){
   const ed=document.createElement('div'); ed.className='edit';
   const sel=new Set(vals(m.labels)); let obj=null; let los=false;
   const lab=document.createElement('div'); lab.className='chips';
-  const drawL=()=>{ lab.innerHTML=''; LABELS.forEach(l=>lab.appendChild(chip(l,sel.has(l),'small',()=>{ sel.has(l)?sel.delete(l):sel.add(l); drawL(); }))); };
+  const drawL=()=>{ lab.innerHTML=''; LABELS.forEach(l=>lab.appendChild(chip(l,sel.has(l),'small',()=>{ sel.has(l)?sel.delete(l):sel.add(l); drawL(); }))); lab.appendChild(newLabelChip(n=>{ if(n) sel.add(n); drawL(); })); };
   drawL();
   const oc=document.createElement('div'); oc.className='tiny';
   const drawO=()=>{ oc.innerHTML=obj?('Nieuw object: <b>'+esc(obj.objectnr)+'</b> '+esc(obj.naam||'')+(obj.plaats?' · '+esc(obj.plaats):'')):(los?'<b>Object loskoppelen</b> (mail blijft in zijn map staan)':(m.objectnr?'Object: <b>'+esc(m.objectnr)+'</b> '+esc(m.objectnaam||''):'Geen object gekoppeld')); };
@@ -468,7 +483,7 @@ function editor(m){
 function arcSearch(){ const q=$('arcQ').value.trim(); if(q.length<2){ loadArchief(true); return; } loadArchief(true,q); }
 
 function demo(){
-  DEMO=true;
+  DEMO=true; loadLabels();
   // Voorbeeldweergave buiten Outlook (?demo=1): toont hoe het paneel eruitziet met een echte beslissing.
   item={ID:0,Route:{Value:'C Beantwoorden'},Zekerheid:{Value:'Hoog'},Richting:{Value:'Inkomend'},Labels:[{Value:'Object'},{Value:'Service/Support'}],Vervolgacties:[{Value:'Taak collega'}],Relatie:{Value:'Klant'},
     Objectnr:'OBJ002111',Objectnaam:'Ringerskwartier',Adres:'Ringersstraat 10',Plaats:'Alkmaar',Klantnr:'5001188',Klantnaam:'Blom Installatietechniek',Projectmap:'/sites/Projecten636/Gedeelde documenten/Algemeen/Alkmaar/Ringerskwartier',
