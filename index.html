@@ -281,7 +281,7 @@
     </div>
 
     <div class="card" id="logcard">
-      <div class="lbl">Wat ik heb gevonden — controleer onderstaande en geef akkoord <span class="live" id="bclive" hidden>Verbonden met Business Central</span></div>
+      <div class="lbl">Wat ik heb gevonden — controleer onderstaande en geef akkoord <a class="link" href="#" id="herkenOpnieuw" style="font-weight:400">opnieuw herkennen</a> <span class="live" id="bclive" hidden>Verbonden met Business Central</span></div>
       <div class="log" id="log"></div>
     </div>
 
@@ -719,6 +719,16 @@ function openArchiefMail(m){
   msg('','ok'); $('btnOk').disabled=false; $('btnSave').disabled=false; $('main').style.display='grid'; $('bar').style.display='grid'; window.scrollTo(0,0);
 }
 function terugNaarArchief(){ state=blank(); $('main').style.display='none'; $('bar').style.display='none'; $('archief').style.display='grid'; setMode('archief','Zoek en corrigeer gearchiveerde mail. Klik ✎ om een mail te openen.'); renderArchief(); }
+async function herkenInbox(e){
+  if(e) e.preventDefault(); if(state.mode!=='inkomend'||!item) return;
+  const it=Office.context.mailbox.item; const mid=it&&it.internetMessageId; if(!mid&&!DEMO){ msg('Geen Message-ID beschikbaar.','warn'); return; }
+  if(!DEMO&&!cfg.archiefherkennen){ msg('Configuratie mist "archiefherkennen".','warn'); return; }
+  msg('De CENTRALE herkent deze mail opnieuw (incl. bijlagen, ±20 s)…','warn');
+  try{ const r=DEMO?await demoApi('archiefherkennen',{}):await api('archiefherkennen',{messageId:mid}); if(!r.item) throw new Error(r.fout||'geen antwoord');
+    const nr=r.item; fillFromItem(nr); const rl=(val(nr.Route)||'').charAt(0); if(rl) state.route=rl; renderRoutes((val(item.Route)||'G').charAt(0)); renderLabels(vals(nr.Labels)); renderVervolg(vals(nr.Vervolgacties)); renderAll();
+    const d=r.document||{}; msg('Nieuw voorstel van de CENTRALE'+(d.nr?' · document '+d.nr+' ('+(d.soort||'')+')':'')+(d.eigenVerzonden?' · door DFSG verzonden: ter info':'')+'. Nog niets opgeslagen — controleer en klik Akkoord & doorzetten of Alleen opslaan.','ok');
+  }catch(err){ msg('Opnieuw herkennen mislukt: '+err.message,'err'); }
+}
 async function herken(){
   const m=state.arc; if(!m) return; const b=$('btnHerken'); b.disabled=true; b.textContent='CENTRALE leest de mail…'; msg('De CENTRALE herkent deze archiefmail (±15 s)…','warn');
   try{ const r=await api('archiefherkennen',{id:m.id}); if(!r.item) throw new Error(r.fout||'geen antwoord');
@@ -819,7 +829,7 @@ Office.onReady(()=>{
   $('mapGo').onclick=()=>searchMap(false); $('mapPlaats').addEventListener('keydown',e=>{ if(e.key==='Enter') searchMap(false); });
   $('relatie').onchange=()=>{ state.relatie=$('relatie').value; };
   $('btnOk').onclick=()=>state.mode==='archief'?terugNaarArchief():save(true); $('btnSave').onclick=()=>state.mode==='archief'?saveArchief():save(false);
-  $('btnHerken').onclick=herken; $('arcBack').onclick=e=>{ e.preventDefault(); terugNaarArchief(); }; $('webTerug').onclick=e=>{ e.preventDefault(); showWerklijst(); };
+  $('btnHerken').onclick=herken; $('herkenOpnieuw').onclick=herkenInbox; $('arcBack').onclick=e=>{ e.preventDefault(); terugNaarArchief(); }; $('webTerug').onclick=e=>{ e.preventDefault(); showWerklijst(); };
   document.querySelectorAll('.vt').forEach(t=>t.addEventListener('keydown',e=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); t.click(); } }));
   document.querySelectorAll('.vt').forEach(t=>t.onclick=()=>setView(t.dataset.v));
   $('arcGo').onclick=arcSearch; $('arcQ').addEventListener('keydown',e=>{ if(e.key==='Enter') arcSearch(); }); $('arcHelpBtn').onclick=arcHelp;
