@@ -507,12 +507,15 @@ async function load(){
     renderRoutes(agentRoute); renderLabels(vals(item.Labels)); renderVervolg(vals(item.Vervolgacties)); renderAll();
     const nk=['Objectnr','Klantnr','Leveranciernr','Documentnr','Projectmap'].filter(f=>item[f]).length;
     msg(item.Gecontroleerd?'Al doorgezet. Je kunt nog aanpassen.':(nk?('De agent stelt '+nk+' koppeling'+(nk>1?'en':'')+' voor. Controleer en klik ✓ Akkoord & doorzetten.'):''),'ok');
-    showMain(); $('btnOk').disabled=false; $('btnSave').disabled=false; if(view==='archief') loadArchief(false);
+    showMain(); $('btnOk').disabled=!!(item.Gecontroleerd&&DOORZETTEN_ACTIEF); $('btnSave').disabled=false; if(view==='archief') loadArchief(false);
     if(state.obj&&state.obj.plaats&&!state.map){ searchMap(true); }
   }catch(e){ msg('Fout: '+e.message,'err'); }
 }
+let bezig=false;
 async function save(akkoord){
+  if(bezig) return;
   if(!state.itemId){ msg('Nog geen registratie om op te slaan.','warn'); return; }
+  bezig=true;
   $('btnOk').disabled=true; $('btnSave').disabled=true; msg(akkoord?'Akkoord opslaan…':'Opslaan…','warn');
   const o=state.obj||{}, k=state.klant||{}, l=state.lev||{}, d=state.doc||{}, m=state.map||{};
   try{
@@ -521,8 +524,14 @@ async function save(akkoord){
     if(!DEMO&&cfg.archiefwijzigen){ try{ const it=Office.context.mailbox.item; const a=await api('archiefwijzigen',Object.assign(koppelBody(),{messageId:it.internetMessageId,bron:akkoord?'Inkomend (akkoord)':'Inkomend'})); if(a.gevonden&&a.ok) extra=' · ook in archief bijgewerkt'; }catch(e){} }
     msg((DOORZETTEN_ACTIEF?(akkoord?'Doorgezet':'Correcties opgeslagen (nog niet doorgezet)'):(akkoord?'Akkoord vastgelegd':'Opgeslagen'))+' · '+(r.categorieen||[]).join(', ')+(r.verplaatst==='Succeeded'?' · mail verplaatst':'')+extra,'ok');
     if(akkoord&&item){ item.Gecontroleerd=true; setMode('inkomend',inkomendTekst()); }
+    if(akkoord&&DOORZETTEN_ACTIEF){
+      msg('Doorgezet. De CENTRALE werkt de route nu af ('+(routeZin(state.route)||'verplaatsen')+'). '+(WEB?'Terug naar de werklijst…':'Je kunt de volgende mail openen.'),'ok');
+      bezig=false;
+      if(WEB){ const titel=state.title; setTimeout(()=>showWerklijst('Doorgezet: '+titel+' — de CENTRALE is ermee bezig.'),1800); }
+      return; /* knoppen blijven uit: deze mail is doorgezet */
+    }
   }catch(e){ msg('Opslaan mislukt: '+e.message,'err'); }
-  $('btnOk').disabled=false; $('btnSave').disabled=false;
+  bezig=false; $('btnOk').disabled=false; $('btnSave').disabled=false;
 }
 /* ---------- Routes (control panel) ---------- */
 let ROUTECFG=null, AGENTCAT=[];
@@ -602,11 +611,11 @@ function newLabelChip(onAdded){
     wrap.appendChild(i); wrap.appendChild(b); i.focus(); });
   wrap.appendChild(c); return wrap;
 }
-async function showWerklijst(){
+async function showWerklijst(melding){
   Office.context.mailbox.item=null; item=null; state=blank(); state.mode='inkomend';
   $('main').style.display='none'; $('bar').style.display='none'; $('webNav').hidden=true;
   if(view!=='agent') return;
-  const w=$('werklijst'); w.style.display='grid'; setMode('inkomend','Wacht op jouw antwoord'); msg('','ok');
+  const w=$('werklijst'); w.style.display='grid'; setMode('inkomend','Wacht op jouw antwoord'); msg(typeof melding==='string'?melding:'','ok');
   w.innerHTML='<div class="card"><div class="lbl">Werklijst inbox <span class="hint"><span id="wlInfo">ophalen…</span> · <a class="link" href="#" id="wlVernieuw">vernieuwen</a> · <a class="link" href="#" id="wlCfg">instellingen</a></span></div><div class="tiny">Mails die de CENTRALE heeft gelezen en in TO DO 0 Te controleren staan. Klik een mail om te controleren en door te zetten.</div></div><div class="arclist" id="wlRes"></div>';
   $('wlVernieuw').onclick=e=>{ e.preventDefault(); showWerklijst(); };
   $('wlCfg').onclick=e=>{ e.preventDefault(); $('setup').style.display='grid'; $('cfg').value=cfg?JSON.stringify(cfg):''; window.scrollTo(0,0); };
