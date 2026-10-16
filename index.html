@@ -208,6 +208,14 @@
   #webNav{font-size:13px}
   body.web{max-width:520px;margin:0 auto;min-height:100vh;border-left:1px solid var(--f-stroke);border-right:1px solid var(--f-stroke);background:var(--f-bg)}
   body.web .bar{left:50%;right:auto;transform:translateX(-50%);width:min(520px,100%)}
+  .vt[data-v="routes"].on{border-bottom-color:#5c5c5c} .vt[data-v="routes"].on svg{color:#424242}
+  body[data-mode="routes"] .band{background:#f5f5f5;border-color:#e0e0e0;border-left-color:#616161} body[data-mode="routes"] .band b{color:#424242}
+  .rt{display:grid;gap:8px} .rt h3{margin:0;font-size:14px;font-weight:600;display:flex;justify-content:space-between;align-items:center}
+  .rt .code{font-weight:400;color:var(--f-text2);font-size:12px;margin-left:4px}
+  .rt label{font-size:12px;font-weight:600;color:var(--f-text);display:grid;gap:4px}
+  .rt .vast{font-size:12px;color:var(--f-text2)}
+  .switch{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:400;cursor:pointer}
+  #routeUitleg{background:#fafafa;border:1px dashed var(--f-stroke2);border-radius:4px;padding:6px 8px}
 </style>
 </head>
 <body>
@@ -222,7 +230,7 @@
   </div>
 
   <div id="demoBanner" hidden style="position:sticky;top:0;z-index:20;background:#fff4ce;border:1px solid #f1c21b;border-radius:4px;padding:8px 12px;font-size:13px;line-height:18px;color:#5c4400"><b>Voorbeeldpagina</b> — hier wordt niets opgeslagen. Labels, koppelingen en wijzigingen verdwijnen bij vernieuwen en komen niet in de inbox of het archief. Het echte paneel werkt alleen in Outlook.</div>
-  <div class="views" id="views" role="tablist"><div class="vt on" data-v="agent" role="tab" tabindex="0" aria-selected="true"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="M3 11.5V15a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-3.5M3 11.5 5 4.8A1.5 1.5 0 0 1 6.4 3.7h7.2A1.5 1.5 0 0 1 15 4.8l2 6.7M3 11.5h4l1 2h4l1-2h4"/></svg>Inbox</div><div class="vt" data-v="archief" role="tab" tabindex="0" aria-selected="false"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><rect x="2.5" y="3.5" width="15" height="4" rx="1"/><path d="M4 7.5V15a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7.5M8 10.5h4"/></svg>Archief</div></div>
+  <div class="views" id="views" role="tablist"><div class="vt on" data-v="agent" role="tab" tabindex="0" aria-selected="true"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="M3 11.5V15a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-3.5M3 11.5 5 4.8A1.5 1.5 0 0 1 6.4 3.7h7.2A1.5 1.5 0 0 1 15 4.8l2 6.7M3 11.5h4l1 2h4l1-2h4"/></svg>Inbox</div><div class="vt" data-v="archief" role="tab" tabindex="0" aria-selected="false"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><rect x="2.5" y="3.5" width="15" height="4" rx="1"/><path d="M4 7.5V15a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7.5M8 10.5h4"/></svg>Archief</div><div class="vt" data-v="routes" role="tab" tabindex="0" aria-selected="false"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="M4 6h12M4 14h12"/><circle cx="8" cy="6" r="2" fill="#fff"/><circle cx="13" cy="14" r="2" fill="#fff"/></svg>Routes</div></div>
   <div class="band" id="band"><b>Inbox</b><span>Mail wordt gelezen…</span></div>
 
   <div id="status" class="msg warn">Mail wordt gelezen…</div>
@@ -252,6 +260,7 @@
   </div>
 
   <div id="werklijst" style="display:none;gap:8px"></div>
+  <div id="routesView" style="display:none;gap:8px"></div>
   <div id="webNav" hidden><a class="link" href="#" id="webTerug">← Terug naar de werklijst</a></div>
 
   <div id="main" style="display:none;gap:10px" class="wrap">
@@ -279,6 +288,7 @@
     <div class="card" id="routecard">
       <div class="lbl">Route voor verdere verwerking</div>
       <div class="chips" id="routes"></div>
+      <div class="tiny" id="routeUitleg"></div>
     </div>
 
     <div class="card">
@@ -381,7 +391,7 @@ const val=x=>(x&&typeof x==='object'&&'Value' in x)?x.Value:(x||'');
 const vals=a=>Array.isArray(a)?a.map(val):[];
 const norm=s=>String(s||'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
 
-function renderRoutes(agent){ const c=$('routes'); c.innerHTML=''; ROUTES.forEach(([k,n])=>c.appendChild(chip(n,state.route===k,'route'+(agent===k?' agent':''),()=>{state.route=k;renderRoutes(agent);}))); }
+function renderRoutes(agent){ const c=$('routes'); c.innerHTML=''; ROUTES.forEach(([k,n])=>{ const ri=(typeof routeInfo==='function')&&routeInfo(k); if(ri&&ri.Actief===false&&state.route!==k) return; c.appendChild(chip((ri&&ri.Naam)||n,state.route===k,'route'+(agent===k?' agent':''),()=>{state.route=k;renderRoutes(agent);})); }); if(typeof toonRouteUitleg==='function') toonRouteUitleg(); }
 function renderLabels(agent){ const c=$('labels'); c.innerHTML=''; const show=LABELS.filter(l=>showAllLabels||state.labels.has(l)||(agent||[]).includes(l)); show.forEach(l=>c.appendChild(chip(l,state.labels.has(l),(agent||[]).includes(l)?'agent':'',()=>{ state.labels.has(l)?state.labels.delete(l):state.labels.add(l); renderLabels(agent); }))); c.appendChild(chip(showAllLabels?'minder':'+ label',false,'more',()=>{ showAllLabels=!showAllLabels; renderLabels(agent); })); if(showAllLabels) c.appendChild(newLabelChip(n=>{ if(n) state.labels.add(n); renderLabels(agent); })); }
 function renderKoppel(){
   const c=$('koppel'); c.innerHTML='';
@@ -458,7 +468,7 @@ function showMain(){ if(view==='agent'||state.mode==='archief'){ $('main').style
 function setMode(mode,tekst){
   uitlegKnoppen();
   document.body.dataset.mode=mode;
-  const t={inkomend:'Inbox',archief:'Archief',archiefmail:'Archiefmail'}[mode];
+  const t={inkomend:'Inbox',archief:'Archief',archiefmail:'Archiefmail',routes:'Control panel'}[mode];
   $('band').innerHTML='<b>'+t+'</b><span>'+esc(tekst||'')+'</span>';
   const am=mode==='archiefmail';
   $('arcEditCard').hidden=!am; $('routecard').hidden=am; $('logcard').hidden=am;
@@ -480,7 +490,7 @@ function fillFromItem(it2){
 async function load(){
   $('main').style.display='none'; $('bar').style.display='none'; arc.key='';
   if(!loadCfg()){ $('setup').style.display='grid'; setMode('inkomend','Eenmalige instelling nodig'); msg('Eerst de API-configuratie instellen: plak de regel die je van Henk kreeg en klik Opslaan.','warn'); return; }
-  $('setup').style.display='none'; loadLabels();
+  $('setup').style.display='none'; loadLabels(); loadRoutes().then(()=>{ try{ if(state.route) renderRoutes(item&&(val(item.Route)||'G').charAt(0)); }catch(e){} });
   const it=Office.context.mailbox.item; if(!it){ if(WEB){ showWerklijst(); return; } msg('Selecteer een mail.','warn'); return; }
   msg('Beslissing van de agent ophalen…','warn');
   state=blank(); state.mode='inkomend'; state.title=it.subject||''; state.outlookId=Office.context.mailbox.convertToRestId(it.itemId,Office.MailboxEnums.RestVersion.v2_0);
@@ -513,6 +523,66 @@ async function save(akkoord){
     if(akkoord&&item){ item.Gecontroleerd=true; setMode('inkomend',inkomendTekst()); }
   }catch(e){ msg('Opslaan mislukt: '+e.message,'err'); }
   $('btnOk').disabled=false; $('btnSave').disabled=false;
+}
+/* ---------- Routes (control panel) ---------- */
+let ROUTECFG=null, AGENTCAT=[];
+async function loadRoutes(force){
+  if(ROUTECFG&&!force) return ROUTECFG;
+  if(DEMO){ ROUTECFG=ROUTES.map(([k,n],i)=>({ID:i+1,Title:k,Naam:n,Actie:k==='C'?'Concept antwoord':(k==='B'?'Concept doorsturen':'Alleen verplaatsen'),Agents:k==='C'?['INSPECTEUR','NORMSPECIALIST','ZOEKER','PERSONEELSZAKEN']:[],Doelmap:k==='A'?'Archiveren':'TO DO',Conceptmap:(k==='B'||k==='C')?'TO DO 1 Beantwoorden':'',DoorsturenAan:k==='B'?'administratie@dfsg.nl':'',Instructies:'(voorbeeld)',Omschrijving:'(voorbeeld)',Actief:true})); AGENTCAT=['INSPECTEUR','NORMSPECIALIST','ZOEKER','PERSONEELSZAKEN'].map((t,i)=>({ID:i+1,Title:t,Spelregels:'(voorbeeld)',Wanneer:'',Actief:true})); return ROUTECFG; }
+  if(!cfg||!cfg.routes) return null;
+  try{ const r=await api('routes',{actie:'lijst'}); ROUTECFG=r.routes||[]; AGENTCAT=r.agents||[]; }catch(e){ ROUTECFG=null; }
+  return ROUTECFG;
+}
+function routeInfo(k){ return (ROUTECFG||[]).find(x=>x.Title===k); }
+function routeZin(k){
+  const r=routeInfo(k); if(!r) return '';
+  const ag=vals(r.Agents);
+  if(r.Actief===false) return 'Route staat uit in het control panel: de mail wordt alleen opgeslagen.';
+  if(r.Actie==='Concept antwoord') return 'Na doorzetten: de CENTRALE zet een concept-antwoord klaar'+(ag.length?' met '+ag.join(', '):'')+' in '+(r.Conceptmap||'TO DO 1')+' en verplaatst de mail naar '+(r.Doelmap||'-')+'. Jij verstuurt.';
+  if(r.Actie==='Concept doorsturen') return 'Na doorzetten: de CENTRALE zet een doorstuurconcept aan '+(r.DoorsturenAan||'-')+' klaar in '+(r.Conceptmap||'TO DO 1')+' en verplaatst de mail naar '+(r.Doelmap||'-')+'. Jij verstuurt.';
+  return 'Na doorzetten: de mail gaat naar '+(r.Doelmap||'-')+'.';
+}
+function toonRouteUitleg(){ const u=$('routeUitleg'); if(u) u.textContent=routeZin(state.route)||''; u&&(u.style.display=u.textContent?'':'none'); }
+async function showRoutes(){
+  const w=$('routesView'); w.style.display='grid'; setMode('routes','Per route: welke actie, welke agents en welke instructies de CENTRALE uitvoert na Akkoord & doorzetten.'); msg('','ok');
+  w.innerHTML='<div class="card"><div class="lbl">Control panel · routes <span class="hint"><a class="link" href="#" id="rtVernieuw">vernieuwen</a></span></div><div class="tiny">Wijzigingen werken direct voor de volgende mail die je doorzet. De CENTRALE kiest de route bij binnenkomst; jij bevestigt hem in de Inbox.</div></div><div id="rtLijst" style="display:grid;gap:8px"><span class="tiny">Routes ophalen…</span></div>';
+  $('rtVernieuw').onclick=e=>{ e.preventDefault(); ROUTECFG=null; showRoutes(); };
+  if(!DEMO&&(!cfg||!cfg.routes)){ $('rtLijst').innerHTML='<div class="msg warn">De configuratie mist "routes". Plak de nieuwste configuratie via Instellingen.</div>'; return; }
+  await loadRoutes(true); const L=$('rtLijst'); L.innerHTML='';
+  if(!ROUTECFG){ L.innerHTML='<div class="msg err">Routes konden niet worden opgehaald.</div>'; return; }
+  const agentNamen=AGENTCAT.map(a=>a.Title).filter(t=>t!=='ARCHIVARIS-STIJL');
+  ROUTECFG.forEach(r=>{
+    const c=document.createElement('div'); c.className='card rt'; const sel=new Set(vals(r.Agents));
+    c.innerHTML='<h3><span>'+esc(r.Naam||'')+'<span class="code">route '+esc(r.Title)+'</span></span><label class="switch"><input type="checkbox" class="aan" '+(r.Actief!==false?'checked':'')+'> actief</label></h3>'
+      +'<label>Wanneer kiest de CENTRALE deze route<textarea class="oms">'+esc(r.Omschrijving||'')+'</textarea></label>'
+      +'<label>Actie na doorzetten<select class="actie"><option>Alleen verplaatsen</option><option>Concept antwoord</option><option>Concept doorsturen</option></select></label>'
+      +'<label class="fwdL">Doorsturen aan<input type="text" class="fwd" value="'+esc(r.DoorsturenAan||'')+'"></label>'
+      +'<div><div class="lbl" style="margin-bottom:4px">Agents</div><div class="chips ag"></div></div>'
+      +'<label>Instructies voor deze route<textarea class="ins" style="min-height:90px">'+esc(r.Instructies||'')+'</textarea></label>'
+      +'<div class="vast">Doelmap: <b>'+esc(r.Doelmap||'-')+'</b>'+(r.Conceptmap?' · concept naar <b>'+esc(r.Conceptmap)+'</b>':'')+'</div>'
+      +'<div style="display:flex;gap:8px;align-items:center"><button class="btn steel opsl">Opslaan</button><span class="tiny st"></span></div>';
+    c.querySelector('.actie').value=r.Actie||'Alleen verplaatsen';
+    const fwdL=c.querySelector('.fwdL'); const toonFwd=()=>{ fwdL.style.display=c.querySelector('.actie').value==='Concept doorsturen'?'':'none'; }; toonFwd(); c.querySelector('.actie').onchange=toonFwd;
+    const ag=c.querySelector('.ag'); const drawAg=()=>{ ag.innerHTML=''; agentNamen.forEach(n=>ag.appendChild(chip(n,sel.has(n),'small',()=>{ sel.has(n)?sel.delete(n):sel.add(n); drawAg(); }))); if(!agentNamen.length) ag.innerHTML='<span class="tiny">Geen agents gevonden.</span>'; }; drawAg();
+    c.querySelector('.opsl').onclick=async()=>{ const st=c.querySelector('.st'), b=c.querySelector('.opsl'); b.disabled=true; st.textContent='Opslaan…';
+      const velden={Omschrijving:c.querySelector('.oms').value,Actie:c.querySelector('.actie').value,DoorsturenAan:c.querySelector('.fwd').value.trim(),Agents:agentNamen.filter(n=>sel.has(n)),Instructies:c.querySelector('.ins').value,Actief:c.querySelector('.aan').checked};
+      try{ if(DEMO){ st.textContent='Voorbeeldpagina: niet opgeslagen.'; } else { const res=await api('routes',{actie:'opslaan',id:r.ID,velden}); if(!res.ok) throw new Error('opslaan mislukt'); ROUTECFG=res.routes||ROUTECFG; AGENTCAT=res.agents||AGENTCAT; st.textContent='Opgeslagen ✓'; } }catch(e){ st.textContent='Fout: '+e.message; }
+      b.disabled=false; };
+    L.appendChild(c);
+  });
+  const kop=document.createElement('div'); kop.className='card'; kop.innerHTML='<div class="lbl">Agents · spelregels</div><div class="tiny">Losse agents die per route ingezet kunnen worden. Hun spelregels gelden overal waar ze worden gebruikt.</div>'; L.appendChild(kop);
+  AGENTCAT.forEach(a=>{
+    const c=document.createElement('div'); c.className='card rt';
+    c.innerHTML='<h3><span>'+esc(a.Title)+(a.Soort?'<span class="code">'+esc(a.Soort)+'</span>':'')+'</span><label class="switch"><input type="checkbox" class="aan" '+(a.Actief!==false?'checked':'')+'> actief</label></h3>'
+      +(a.Domein?'<div class="vast">'+esc(a.Domein)+'</div>':'')
+      +'<label>Wanneer inzetten<textarea class="wan">'+esc(a.Wanneer||'')+'</textarea></label>'
+      +'<label>Spelregels<textarea class="spr" style="min-height:90px">'+esc(a.Spelregels||'')+'</textarea></label>'
+      +'<div style="display:flex;gap:8px;align-items:center"><button class="btn steel opsl">Opslaan</button><span class="tiny st"></span></div>';
+    c.querySelector('.opsl').onclick=async()=>{ const st=c.querySelector('.st'), b=c.querySelector('.opsl'); b.disabled=true; st.textContent='Opslaan…';
+      try{ if(DEMO){ st.textContent='Voorbeeldpagina: niet opgeslagen.'; } else { const res=await api('routes',{actie:'agent_opslaan',id:a.ID,velden:{Wanneer:c.querySelector('.wan').value,Spelregels:c.querySelector('.spr').value,Actief:c.querySelector('.aan').checked}}); if(!res.ok) throw new Error('opslaan mislukt'); AGENTCAT=res.agents||AGENTCAT; st.textContent='Opgeslagen ✓'; } }catch(e){ st.textContent='Fout: '+e.message; }
+      b.disabled=false; };
+    L.appendChild(c);
+  });
 }
 /* ---------- Archief-tab ---------- */
 let view='agent', arc={ctx:null,items:[],open:null,on:new Set(['deze','gesprek','afzender','object']),key:'',q:'',volgende:0,meer:false};
@@ -561,6 +631,8 @@ function openWeb(x){
   $('werklijst').style.display='none'; $('webNav').hidden=false; window.scrollTo(0,0); load();
 }
 function setView(v){
+  $('routesView').style.display='none';
+  if(v==='routes'){ view=v; document.querySelectorAll('.vt').forEach(t=>{ t.classList.toggle('on',t.dataset.v===v); t.setAttribute('aria-selected',t.dataset.v===v?'true':'false'); }); $('archief').style.display='none'; $('werklijst').style.display='none'; $('webNav').hidden=true; $('main').style.display='none'; $('bar').style.display='none'; showRoutes(); return; }
   view=v; document.querySelectorAll('.vt').forEach(t=>{ t.classList.toggle('on',t.dataset.v===v); t.setAttribute('aria-selected',t.dataset.v===v?'true':'false'); });
   const ag=v==='agent';
   $('archief').style.display=ag?'none':'grid';
@@ -683,7 +755,7 @@ function arcSearch(){ const q=$('arcQ').value.trim(); if(q.length<2){ loadArchie
 function arcHelp(e){ e.preventDefault(); $('arcHelp').hidden=!$('arcHelp').hidden; }
 
 function demo(){
-  DEMO=true; $('demoBanner').hidden=false; loadLabels(); view='agent'; document.querySelectorAll('.vt').forEach(t=>t.classList.toggle('on',t.dataset.v==='agent')); $('archief').style.display='none';
+  DEMO=true; loadRoutes(); $('demoBanner').hidden=false; loadLabels(); view='agent'; document.querySelectorAll('.vt').forEach(t=>t.classList.toggle('on',t.dataset.v==='agent')); $('archief').style.display='none';
   // Voorbeeldweergave buiten Outlook (?demo=1): toont hoe het paneel eruitziet met een echte beslissing.
   item={ID:0,Route:{Value:'C Beantwoorden'},Zekerheid:{Value:'Hoog'},Richting:{Value:'Inkomend'},Labels:[{Value:'Object'},{Value:'Service/Support'}],Vervolgacties:[{Value:'Taak collega'}],Relatie:{Value:'Klant'},
     Objectnr:'OBJ002111',Objectnaam:'Ringerskwartier',Adres:'Ringersstraat 10',Plaats:'Alkmaar',Klantnr:'5001188',Klantnaam:'Blom Installatietechniek',Projectmap:'/sites/Projecten636/Gedeelde documenten/Algemeen/Alkmaar/Ringerskwartier',
@@ -744,6 +816,7 @@ Office.onReady(()=>{
   $('arcGo').onclick=arcSearch; $('arcQ').addEventListener('keydown',e=>{ if(e.key==='Enter') arcSearch(); }); $('arcHelpBtn').onclick=arcHelp;
   try{ Office.context.mailbox.addHandlerAsync(Office.EventType.ItemChanged,()=>load()); }catch(e){}
   load();
+  const vq=(location.search.match(/[?&]view=(inbox|archief|routes)/)||[])[1]; if(vq==='archief') setTimeout(()=>setView('archief'),300); if(vq==='routes') setTimeout(()=>setView('routes'),300);
 });
 </script>
 </body>
