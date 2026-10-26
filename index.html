@@ -388,7 +388,7 @@
       <div class="lbl">Waarom (helpt de agent leren)</div>
       <textarea id="correctie" placeholder="Bijv. 'Henk alleen in CC, actie ligt bij Planning' — mag leeg blijven bij akkoord"></textarea>
     </details>
-    <div class="tiny" id="uitlegKnoppen"><b>Alleen opslaan</b> bewaart je correcties (labels/categorieën); de mail blijft in TO DO 0 Te controleren. <b>Akkoord &amp; doorzetten</b> start de agents: verplaatsen per route en concepten klaarzetten. Er wordt nooit iets verstuurd — dat doe jij. <a class="link" href="#" id="cfgOpen">Instellingen</a></div>
+    <div class="tiny" id="uitlegKnoppen"><b>Alleen opslaan</b> bewaart je correcties (labels/categorieën); de mail houdt de categorie <i>0 · Te controleren</i>. <b>Akkoord &amp; doorzetten</b> start de agents: categorie per route (mail blijft in Postvak IN; alleen Archief/Privé wordt verplaatst) en concepten klaarzetten in Concepten. Er wordt nooit iets verstuurd — dat doe jij. <a class="link" href="#" id="cfgOpen">Instellingen</a></div>
   </div>
 </div>
 
@@ -521,7 +521,7 @@ function setMode(mode,tekst){
   $('btnSave').textContent=am?'Opslaan in archief':(DOORZETTEN_ACTIEF?'Alleen opslaan':'Opslaan'); $('btnSave').className='btn '+(am?'steel':'save');
 }
 function uitlegKnoppen(){ const u=$('uitlegKnoppen'); if(u&&!DOORZETTEN_ACTIEF) u.innerHTML='Akkoord zet de categorieën, verplaatst de mail per route en zet bij route C een concept klaar. Er wordt nooit iets verstuurd — dat doe jij.'; }
-function inkomendTekst(){ if(!item) return 'Nog niet door de agent gelezen — sleep hem naar INBOX Agent, of bekijk het archief.'; return item.Gecontroleerd?'✓ Door jou doorgezet. Je kunt nog aanpassen.':'Wacht op jouw antwoord'; }
+function inkomendTekst(){ if(!item) return 'Nog niet door de agent gelezen (oudere mail) — klik "opnieuw herkennen" of bekijk het archief.'; return item.Gecontroleerd?'✓ Door jou doorgezet. Je kunt nog aanpassen.':'Wacht op jouw antwoord'; }
 function fillFromItem(it2){
   state.labels=new Set(vals(it2.Labels)); state.vervolg=new Set(vals(it2.Vervolgacties)); state.relatie=val(it2.Relatie)||'Onbekend'; $('relatie').value=state.relatie;
   state.obj=it2.Objectnr?{objectnr:it2.Objectnr,naam:it2.Objectnaam,adres:it2.Adres,plaats:it2.Plaats,postcode:it2.Postcode,klantnr:it2.Klantnr,klantnaam:it2.Klantnaam}:null;
@@ -543,7 +543,7 @@ async function load(){
   try{
     const d=await api('beslissing',{messageId:it.internetMessageId});
     $('subject').textContent=state.title; $('from').textContent=(it.from&&(it.from.displayName+' <'+it.from.emailAddress+'>'))||'';
-    if(!d.found){ item=null; msg('Deze mail is nog niet door de agent gelezen (staat hij in INBOX Agent?).','warn'); $('richting').textContent='–'; $('agentzegt').textContent='–'; $('samenvatting').textContent=''; $('todo').textContent=''; state.route='E'; renderRoutes(null); renderLabels([]); renderVervolg([]); renderAll(); showMain(); $('btnOk').disabled=true; $('btnSave').disabled=true; setMode('inkomend',inkomendTekst()); setView('archief'); return; }
+    if(!d.found){ item=null; msg('Deze mail is nog niet door de agent gelezen (binnengekomen vóór de agent aanstond). Gebruik "opnieuw herkennen".','warn'); $('richting').textContent='–'; $('agentzegt').textContent='–'; $('samenvatting').textContent=''; $('todo').textContent=''; state.route='E'; renderRoutes(null); renderLabels([]); renderVervolg([]); renderAll(); showMain(); $('btnOk').disabled=true; $('btnSave').disabled=true; setMode('inkomend',inkomendTekst()); setView('archief'); return; }
     item=d.item; const agentRoute=(val(item.Route)||'G').charAt(0); const henkRoute=val(item.RouteHenk);
     state.itemId=item.ID; state.route=(henkRoute||val(item.Route)||'G').charAt(0); fillFromItem(item);
     $('richting').textContent=val(item.Richting)||'–'; $('agentzegt').textContent=(val(item.Route)||'').replace(/^[A-G] /,'')+' · zekerheid '+(val(item.Zekerheid)||'?')+(item.Gecontroleerd?' · ✓ gecontroleerd':'');
@@ -594,8 +594,9 @@ function routeZin(k){
   const r=routeInfo(k); if(!r) return '';
   const ag=vals(r.Agents);
   if(r.Actief===false) return 'Route staat uit in het control panel: de mail wordt alleen opgeslagen.';
-  if(r.Actie==='Concept antwoord') return 'Na doorzetten: de CENTRALE zet een concept-antwoord klaar'+(ag.length?' met '+ag.join(', '):'')+' in '+(r.Conceptmap||'TO DO 1')+' en verplaatst de mail naar '+(r.Doelmap||'-')+'. Jij verstuurt.';
-  if(r.Actie==='Concept doorsturen') return 'Na doorzetten: de CENTRALE zet een doorstuurconcept aan '+(r.DoorsturenAan||'-')+' klaar in '+(r.Conceptmap||'TO DO 1')+' en verplaatst de mail naar '+(r.Doelmap||'-')+'. Jij verstuurt.';
+  if(r.Actie==='Concept antwoord') return 'Na doorzetten: de CENTRALE zet een concept-antwoord klaar'+(ag.length?' met '+ag.join(', '):'')+' in Concepten en geeft de mail de categorie ✎ Concept klaar. Jij verstuurt.';
+  if(r.Actie==='Concept doorsturen') return 'Na doorzetten: de CENTRALE zet een doorstuurconcept aan '+(r.DoorsturenAan||'-')+' klaar in Concepten en geeft de mail de categorie ✎ Concept klaar. Jij verstuurt.';
+  if(/^TO DO/i.test(r.Doelmap||'')) return 'Na doorzetten: de mail blijft in Postvak IN met de routecategorie ('+k+') en ✓ Gecontroleerd.';
   return 'Na doorzetten: de mail gaat naar '+(r.Doelmap||'-')+'.';
 }
 function toonRouteUitleg(){ const u=$('routeUitleg'); if(u) u.textContent=state.mode==='archief'?(state.route?'In het archief wordt de route vastgelegd als kenmerk (voor zoeken en leren). Er wordt niets verplaatst of verstuurd.':''):(routeZin(state.route)||''); u&&(u.style.display=u.textContent?'':'none'); }
@@ -608,7 +609,7 @@ function agentOverzicht(){
     ['3 · Route','ROUTES'],
     ['4 · Verzenden (mens)','Jij leest en verstuurt het concept'],
     ['5 · Archief','Verzonden → archief · Archiveer mail · CENTRALE herkent nieuwe archiefmail · Leerflow (labels/objecten uit correcties)']];
-  const MB=[['Henk.Kattestaart','Pilot · testfase via INBOX Agent',null],
+  const MB=[['Henk.Kattestaart','Pilot · live op Postvak IN (categorieën)',null],
     ['Administratie@','Ontwerp klaar · nog niet live',['CENTRALE (zelfde bouwsteen)','Medewerker administratie','Debiteuren/crediteuren: doorstuur- en antwoordconcepten (ontwerp)','Medewerker administratie','Archief + CENTRALE + leerflow']],
     ['Support@','Gepland',['CENTRALE (zelfde bouwsteen)','Medewerker support','Nog te kiezen bij de bouw (bijv. INSPECTEUR, ZOEKER)','Medewerker support','Archief + CENTRALE + leerflow']],
     ['Info@','Gepland',['CENTRALE (zelfde bouwsteen)','Medewerker','Nog te kiezen bij de bouw','Medewerker','Archief + CENTRALE + leerflow']]];
@@ -646,18 +647,27 @@ async function showRoutes(){
       b.disabled=false; };
     L.appendChild(c);
   });
-  const ak=document.createElement('div'); ak.className='card'; ak.innerHTML='<div class="lbl">Vaste afspraken per type mail</div><div class="tiny">Ontstaan via "Leer de CENTRALE" in de Inbox. Voorstel = de CENTRALE stelt voor, jij geeft akkoord · Bundel = in één klik bovenaan de werklijst · Automatisch = direct afgehandeld (alleen Archief/Lezen). Uitzetten kan altijd; verwijderen nooit.</div><div id="afLijst" style="display:grid;gap:8px"><span class="tiny">Afspraken ophalen…</span></div>'; L.appendChild(ak);
+  const ak=document.createElement('div'); ak.className='card'; ak.innerHTML='<div class="lbl">Vaste afspraken per type mail</div><div class="tiny">Ontstaan via "Leer de CENTRALE" in de Inbox. Voorstel = de CENTRALE stelt voor, jij geeft akkoord · Bundel = in één klik bovenaan de werklijst · Automatisch = direct afgehandeld (alleen Archief/Lezen), maar alleen als álle voorwaarden kloppen: afzender exact, verplicht woord aanwezig, geen verboden woord. Een nieuwe automatische afspraak draait eerst een proefweek (categorie "🧪 Zou archiveren (proef)", er wordt niets verplaatst). Uitzetten kan altijd; verwijderen nooit.</div><div id="afHoofd" class="rt" style="margin:8px 0"></div><div id="afLijst" style="display:grid;gap:8px"><span class="tiny">Afspraken ophalen…</span></div>'; L.appendChild(ak);
   (async()=>{ const AL=$('afLijst'); if(DEMO){ AL.innerHTML='<span class="tiny">(voorbeeld) nog geen afspraken</span>'; return; } if(!cfg.regels){ AL.innerHTML='<span class="msg warn">Configuratie mist "regels".</span>'; return; }
-    try{ const r=await api('regels',{actie:'lijst'}); const R=r.regels||[]; AL.innerHTML=R.length?'':'<span class="tiny">Nog geen afspraken. Vink in de Inbox "Mails zoals deze voortaan zo voorstellen" aan bij Akkoord & doorzetten.</span>';
+    try{ const r=await api('regels',{actie:'lijst'}); const R=r.regels||[]; const INST={}; (r.instellingen||[]).forEach(x=>INST[x.Title]=x.Waarde);
+      const HF=$('afHoofd'); const hAan=String(INST.AutomatischAfhandelen||'uit').toLowerCase()==='aan';
+      HF.innerHTML='<h3><span>Hoofdschakelaar: automatisch afhandelen</span><label class="switch"><input type="checkbox" id="hoofdAan" '+(hAan?'checked':'')+'> aan</label></h3><div class="tiny">Uit = álle mail gaat weer langs jou, ook afspraken op Automatisch. Altijd verboden woorden: '+esc(String(INST.StandaardVerbodenWoorden||'').split(';').join(', '))+'</div><span class="tiny" id="hoofdSt"></span>';
+      $('hoofdAan').onchange=async e=>{ const st=$('hoofdSt'); st.textContent='Opslaan…'; try{ const w=await api('regels',{actie:'instelling',sleutel:'AutomatischAfhandelen',waarde:e.target.checked?'aan':'uit'}); st.textContent=w.ok?(e.target.checked?'Aan ✓':'Uit ✓ — alles gaat langs jou'):'Fout'; }catch(x){ st.textContent='Fout: '+x.message; } };
+      AL.innerHTML=R.length?'':'<span class="tiny">Nog geen afspraken. Vink in de Inbox "Mails zoals deze voortaan zo voorstellen" aan bij Akkoord & doorzetten.</span>';
       R.forEach(a=>{ const c=document.createElement('div'); c.className='rt'; c.style.borderTop='1px solid var(--f-stroke)'; c.style.paddingTop='8px';
         const rn=(routeInfo(a.Route)||{}).Naam||a.Route;
         c.innerHTML='<h3><span>'+esc(a.Voorbeeldonderwerp||a.Title||'')+'</span><label class="switch"><input type="checkbox" class="aan" '+(a.Actief!==false?'checked':'')+'> actief</label></h3>'
           +'<div class="vast">'+esc(a.Afzender||'')+' · route <b>'+esc(rn)+'</b>'+(a.Labels?' · '+esc(a.Labels):'')+' · '+(a.AantalToegepast||0)+'× herkend · '+(a.OngewijzigdAkkoord||0)+'× ongewijzigd akkoord</div>'
           +'<label>Vertrouwen<select class="niv"><option>Voorstel</option><option>Bundel</option><option'+(['A','E'].includes(a.Route)?'':' disabled')+'>Automatisch</option></select></label>'
+          +(a.Niveau==='Automatisch'?'<div class="tiny">'+(!a.ProefTot?'🧪 Proefweek start bij de eerstvolgende mail.':(new Date(a.ProefTot)>new Date()?'🧪 Proefweek tot '+new Date(a.ProefTot).toLocaleDateString('nl-NL')+' · '+(a.ProefTreffers||0)+'× zou gearchiveerd zijn (check de categorie in Outlook)':'✅ Proefweek voorbij · '+(a.ProefTreffers||0)+' proeftreffers · nu echt automatisch'))+'</div>':'')
+          +'<label>Verplicht woord (moet in onderwerp/begin van de mail staan)<input class="vpl" value="'+esc(a.VerplichtWoord||'')+'" placeholder="bijv. Success"></label>'
+          +'<label>Extra verboden woorden (gescheiden door ;)<input class="vbd" value="'+esc(a.VerbodenWoorden||'')+'" placeholder="bijv. skipped;partial"></label>'
           +'<label>Instructie<textarea class="ins">'+esc(a.Instructie||'')+'</textarea></label>'
           +'<div style="display:flex;gap:8px;align-items:center"><button class="btn steel opsl">Opslaan</button><span class="tiny st"></span></div>';
         c.querySelector('.niv').value=a.Niveau||'Voorstel';
-        c.querySelector('.opsl').onclick=async()=>{ const st=c.querySelector('.st'); st.textContent='Opslaan…'; try{ const w=await api('regels',{actie:'wijzig',id:a.ID,actief:c.querySelector('.aan').checked,niveau:c.querySelector('.niv').value,instructie:c.querySelector('.ins').value}); st.textContent=w.ok?'Opgeslagen ✓':'Fout'; }catch(e){ st.textContent='Fout: '+e.message; } };
+        c.querySelector('.opsl').onclick=async()=>{ const st=c.querySelector('.st'); const niv=c.querySelector('.niv').value;
+          if(niv==='Automatisch'&&!c.querySelector('.vpl').value.trim()){ st.textContent='Vul bij Automatisch een verplicht woord in.'; return; }
+          st.textContent='Opslaan…'; try{ const body={actie:'wijzig',id:a.ID,actief:c.querySelector('.aan').checked,instructie:c.querySelector('.ins').value,verplicht:c.querySelector('.vpl').value.trim(),verboden:c.querySelector('.vbd').value.trim()}; if(niv!==(a.Niveau||'Voorstel')) body.niveau=niv; const w=await api('regels',body); st.textContent=w.ok?'Opgeslagen ✓'+(body.niveau==='Automatisch'?' — proefweek start bij de volgende mail':''):'Fout'; if(w.ok&&body.niveau){ a.Niveau=niv; a.ProefTot=null; a.ProefTreffers=0; } }catch(e){ st.textContent='Fout: '+e.message; } };
         AL.appendChild(c); });
     }catch(e){ AL.innerHTML='<span class="msg err">'+esc(e.message)+'</span>'; } })();
   const rk=document.createElement('div'); rk.className='card'; rk.innerHTML='<div class="lbl">Relatiekennis <span class="hint"><a class="link" href="#" id="rkNieuw">+ partij toevoegen</a></span></div><div class="tiny">Partijen met meerdere rollen (bijv. leverancier én klant). De CENTRALE krijgt dit mee bij elke mail van hun maildomein en kiest zo de juiste rol, relatie en object.</div><div id="rkLijst" style="display:grid;gap:8px"><span class="tiny">Ophalen…</span></div>'; L.appendChild(rk);
@@ -716,7 +726,7 @@ async function showWerklijst(melding){
   $('main').style.display='none'; $('bar').style.display='none'; $('webNav').hidden=true;
   if(view!=='agent') return;
   const w=$('werklijst'); w.style.display='grid'; setMode('inkomend','Wacht op jouw antwoord'); msg(typeof melding==='string'?melding:'','ok');
-  w.innerHTML='<div class="card"><div class="lbl">Werklijst inbox <span class="hint"><span id="wlInfo">ophalen…</span> · <a class="link" href="#" id="wlVernieuw">vernieuwen</a> · <a class="link" href="#" id="wlCfg">instellingen</a></span></div><div class="tiny">Mails die de CENTRALE heeft gelezen en in TO DO 0 Te controleren staan. Klik een mail om te controleren en door te zetten.</div></div><div class="arclist" id="wlRes"></div>';
+  w.innerHTML='<div class="card"><div class="lbl">Werklijst inbox <span class="hint"><span id="wlInfo">ophalen…</span> · <a class="link" href="#" id="wlVernieuw">vernieuwen</a> · <a class="link" href="#" id="wlCfg">instellingen</a></span></div><div class="tiny">Mails die de CENTRALE heeft gelezen en de categorie 0 · Te controleren hebben. Klik een mail om te controleren en door te zetten.</div></div><div class="arclist" id="wlRes"></div>';
   $('wlVernieuw').onclick=e=>{ e.preventDefault(); showWerklijst(); };
   $('wlCfg').onclick=e=>{ e.preventDefault(); $('setup').style.display='grid'; $('cfg').value=cfg?JSON.stringify(cfg):''; window.scrollTo(0,0); };
   if(!cfg||!cfg.inboxlijst){ $('wlInfo').textContent='configuratie mist "inboxlijst" — plak de nieuwste configuratie'; return; }
