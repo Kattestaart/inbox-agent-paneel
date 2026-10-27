@@ -231,6 +231,10 @@
   .lz-meta span{overflow-wrap:anywhere}
   .lz-bijl{display:flex;flex-wrap:wrap;gap:6px;padding:10px 20px;border-bottom:1px solid var(--f-stroke);background:#fafafa}
   .lz-bijl:empty{display:none}
+  .werkwijze{background:var(--steel-soft);border-radius:8px;padding:8px 12px;font-size:13px;line-height:1.45}
+  .werkwijze ol{margin:4px 0 0;padding-left:20px} .werkwijze li{margin:1px 0}
+  body[data-mode="archiefmail"] .werkwijze{display:none}
+  #koppelZoek>summary{cursor:pointer;margin-top:6px} #leerCard>summary{cursor:pointer}
   .snel{display:flex;flex-wrap:wrap;gap:4px 10px;align-items:center;font-size:12px;color:var(--muted)}
   .snel .grp{display:flex;gap:4px;align-items:center;flex-wrap:wrap}
   .snel .chip{padding:2px 8px;font-size:12px}
@@ -316,11 +320,15 @@
   <div id="webNav" hidden><a class="link" href="#" id="webTerug">← Terug naar de werklijst</a></div>
 
   <div id="main" style="display:none;gap:10px" class="wrap">
+    <div class="werkwijze" id="werkwijze">
+      <b>Zo werkt het</b>
+      <ol><li><b>Klopt het?</b> Kijk of de agent de mail goed heeft herkend.</li><li><b>Wat moet ermee?</b> Kies één actie.</li><li><b>Akkoord</b>, dan doet de agent de rest. Versturen doe je altijd zelf.</li></ol>
+    </div>
     <div class="card">
       <div class="sub" id="subject"></div>
       <div class="meta">
         <span>Van</span><span id="from"></span>
-        <span>Agent</span><span><span id="agentzegt"></span> · <span id="richting"></span></span>
+        <span>Voorstel</span><span><span id="agentzegt"></span> · <span id="richting"></span></span>
       </div>
       <div id="samenvatting" class="muted"></div>
       <div id="todo"></div>
@@ -332,19 +340,20 @@
       <div class="tiny">Werkt precies als de Inbox: zelfde kaarten, zelfde CENTRALE. Er verandert pas iets als jij op <b>Opslaan in archief</b> klikt. Er wordt niets verplaatst of verstuurd.</div>
     </div>
 
-    <div class="stap"><span class="nr">1</span> Waar gaat het over? <span class="hint">label in Outlook · koppelingen bepalen het label</span></div>
+    <div class="stap"><span class="nr">1</span> Klopt het? <span class="hint">waar gaat de mail over</span></div>
     <div class="card" id="labelCard">
-      <div class="lbl">Zo komt het op de mail in Outlook <span class="hint">max. twee categorieën · opvolgen doe je met de Outlook-vlag</span></div>
+      <div class="lbl">Zo ziet de mail eruit in Outlook</div>
       <div class="chips" id="olPreview"></div>
-      <div class="tiny">Categorie = het object (anders klant, anders leverancier, anders het onderwerp) en zolang nodig de status. Klant, leverancier en onderwerp worden niet als categorie gezet, maar wel vastgelegd en meegenomen naar het archief.</div>
-      <div class="lbl" style="margin-top:8px">Onderwerp · waar gaat het over <span class="hint">vastgelegd, geen categorie</span></div>
+      <div class="lbl" style="margin-top:8px">Onderwerp <span class="hint">klik om aan of uit te zetten</span></div>
       <div class="chips" id="labels"></div>
     </div>
 
     <div class="card">
-      <div class="lbl">Koppelingen <span class="hint">object, klant of leverancier bepaalt het label · BC &amp; SharePoint</span></div>
+      <div class="lbl">Gekoppeld aan <span class="hint">klopt het niet? klik op wijzig</span></div>
       <div class="klist" id="koppel"></div>
-      <div class="lbl" style="margin-top:6px">Relatie afzender / externe partij</div>
+      <details id="koppelZoek">
+      <summary class="tiny link">Zelf zoeken of de relatie aanpassen</summary>
+      <div class="lbl" style="margin-top:6px">De afzender is een</div>
       <select id="relatie">
         <option>Klant</option><option>Leverancier</option><option>Intern</option><option>Medewerker</option>
         <option>Partner/Adviseur</option><option>Overheid/Instantie</option><option>Privé</option><option>Systeem</option><option>Onbekend</option>
@@ -380,36 +389,39 @@
         <div class="row"><input type="text" id="mapPlaats" placeholder="Plaats (map Algemeen/<Plaats>)"><button class="btn sm" id="mapGo">Mappen</button></div>
         <div class="res" id="mapRes"></div>
       </div>
-    </div>
-
-    <div class="stap"><span class="nr">2</span> Context <span class="hint">leer de agent wat belangrijk is</span></div>
-    <div class="card" id="leerCard">
-      <div class="lbl">Waarom &amp; toelichting <span class="hint">wat moet de agent hiervan onthouden</span></div>
-      <textarea id="correctie" placeholder="Bijv. 'Kibo is onze accountant' of 'Henk alleen in CC, actie ligt bij Planning' — mag leeg blijven bij akkoord"></textarea>
-      <div class="tiny">Waarom &amp; toelichting is een <i>hint</i> voor de agent bij volgende mails van deze afzender of uit dit gesprek.</div>
+      </details>
     </div>
 
     <details class="card" id="logcard">
-      <summary class="lbl"><span id="logTitel">Wat ik heb gevonden — controleer onderstaande en geef akkoord</span> <a class="link" href="#" id="herkenOpnieuw" style="font-weight:400">opnieuw herkennen</a> <span class="live" id="bclive" hidden>Verbonden met Business Central</span></summary>
+      <summary class="lbl"><span id="logTitel">Hoe kwam de agent hierop?</span> <a class="link" href="#" id="herkenOpnieuw" style="font-weight:400">opnieuw laten lezen</a> <span class="live" id="bclive" hidden>Verbonden met Business Central</span></summary>
       <div class="log" id="log"></div>
     </details>
 
-    <div class="stap"><span class="nr">3</span> Actie <span class="hint">wat moet er met deze mail gebeuren</span></div>
+    <div class="stap"><span class="nr">2</span> Wat moet ermee? <span class="hint">kies één actie</span></div>
     <div class="card" id="routecard">
       <div class="chips" id="routes"></div>
       <div class="tiny" id="routeUitleg"></div>
       <div id="opdrachtBox" hidden style="margin-top:8px">
-        <div class="lbl">Opdracht / kernpunten <span class="hint" id="opdrachtHint">leidend voor het concept</span></div>
+        <div class="lbl">Wat moet erin staan? <span class="hint" id="opdrachtHint">de agent schrijft het concept hiermee</span></div>
         <textarea id="opdracht" placeholder="Bijv. 'Factuur staat geboekt, wordt voor de vervaldatum betaald' of 'Planning: storing OBJ… morgen inplannen, klant wil terugbelverzoek'"></textarea>
-        <div class="lbl" style="margin-top:6px">Zoek in Business Central <span class="hint">de agent gebruikt alleen wat hij daar vindt</span></div>
+        <div class="lbl" style="margin-top:6px">Laat de agent opzoeken in Business Central <span class="hint">hij gebruikt alleen wat hij daar vindt</span></div>
         <div class="chips" id="bcChecks"></div>
       </div>
-      <div class="lbl" style="margin-top:12px;border-top:1px solid var(--f-stroke);padding-top:10px">Vaste afspraak voor dit soort mail <span class="hint" id="afspraakInfo"></span></div>
-      <label class="switch" style="font-size:13px;align-items:flex-start"><input type="checkbox" id="leerAan" style="margin-top:3px"> <span>Mails van <b>deze afzender</b> met <b>dit onderwerp</b> (cijfers en datums tellen niet mee) voortaan <b>altijd zo</b> afhandelen: dezelfde actie en labels.</span></label>
-      <div class="tiny" id="afspraakToets"></div>
-      <textarea id="leerInstructie" placeholder="Wanneer geldt deze afspraak? Bijv. 'Back-up van de server met [Success] in het onderwerp: altijd archiveren, geen actie nodig.'"></textarea>
-      <div class="tiny">Niveau stel je in bij Routes → Vaste afspraken: <b>Voorstel</b> (jij keurt goed) → <b>Bundel</b> (meerdere in één klik) → <b>Automatisch</b> (alleen Archiveren/Lezen, met verplicht woord, verboden woorden en eerst een proefweek).</div>
     </div>
+
+    <div class="stap"><span class="nr">3</span> Akkoord <span class="hint">klik onderaan op de groene knop</span></div>
+    <div class="tiny" id="uitlegKnoppen"><b>Akkoord</b>: de agent voert de gekozen actie uit. Bij beantwoorden of doorsturen staat daarna een concept klaar in je map Concepten. <b>Er wordt nooit iets verstuurd, dat doe je altijd zelf.</b> <b>Alleen opslaan</b>: je verbeteringen worden bewaard en de mail blijft op "te controleren" staan. <a class="link" href="#" id="cfgOpen">Instellingen</a></div>
+
+    <details class="card" id="leerCard">
+      <summary class="lbl">Leer de agent <span class="hint">optioneel · wordt slimmer van jouw uitleg</span></summary>
+      <div class="lbl" style="margin-top:6px">Waarom? <span class="hint">wat moet de agent onthouden</span></div>
+      <textarea id="correctie" placeholder="Bijv. 'Kibo is onze accountant' of 'Ik sta alleen in CC, de actie ligt bij Planning'"></textarea>
+      <div class="lbl" style="margin-top:10px">Vaste afspraak <span class="hint" id="afspraakInfo"></span></div>
+      <label class="switch" style="font-size:13px;align-items:flex-start"><input type="checkbox" id="leerAan" style="margin-top:3px"> <span>Mails van <b>deze afzender</b> over <b>dit onderwerp</b> voortaan <b>altijd zo</b> afhandelen (cijfers en datums tellen niet mee).</span></label>
+      <div class="tiny" id="afspraakToets"></div>
+      <textarea id="leerInstructie" placeholder="Wanneer geldt deze afspraak? Bijv. 'Back-up van de server met [Success] in het onderwerp: altijd archiveren.'"></textarea>
+      <div class="tiny">Een nieuwe afspraak is eerst een <b>voorstel</b>: jij keurt elke keer goed. Pas als het een tijd goed gaat, kun je hem bij <b>Routes</b> zwaarder zetten.</div>
+    </details>
 
     <details class="card" id="meer" hidden>
       <summary>Vervolgacties (later: worden routes)</summary>
@@ -417,7 +429,6 @@
       <div class="chips" id="vervolg"></div>
       <div class="tiny" id="vervolgtoel"></div>
     </details>
-    <div class="tiny" id="uitlegKnoppen"><b>Alleen opslaan</b> bewaart je correcties (labels/categorieën); de mail houdt de categorie <i>0 · Te controleren</i>. <b>Akkoord &amp; doorzetten</b> start de agents: categorie per route (mail blijft in Postvak IN; alleen Archief/Privé wordt verplaatst) en concepten klaarzetten in Concepten. Er wordt nooit iets verstuurd — dat doe jij. <a class="link" href="#" id="cfgOpen">Instellingen</a></div>
   </div>
 </div>
 
@@ -491,11 +502,11 @@ function actieLabel(k,ri,n){
 const BCCHECKS=[['posten','Openstaande posten'],['factuur','Factuur'],['offerte','Offerte'],['order','Order']];
 function renderOpdracht(){ const box=$('opdrachtBox'); if(!box) return; const ri=routeInfo(state.route)||{}; const a=ri.Actie||'';
   const toon=a==='Concept antwoord'||a==='Concept doorsturen'; box.hidden=!toon; if(!toon) return;
-  $('opdrachtHint').textContent=a==='Concept doorsturen'?'wat moet de collega doen? komt bovenaan de doorstuurmail':'wat wil je antwoorden? leidend voor het concept';
+  $('opdrachtHint').textContent=a==='Concept doorsturen'?'wat moet de collega doen?':'wat wil je antwoorden?';
   /* Voorstel van de agent: opdracht en BC-zoekopdrachten alvast invullen; Henk keurt goed of past aan */
   if(!state.opdrachtVoorstel){ state.opdrachtVoorstel=true;
     const voorstel=String((item&&item.WatMoetIkDoen)||'').trim();
-    if(voorstel&&!$('opdracht').value.trim()){ $('opdracht').value=voorstel; $('opdrachtHint').textContent+=' · voorstel van de agent, pas aan of laat staan'; }
+    if(voorstel&&!$('opdracht').value.trim()){ $('opdracht').value=voorstel; $('opdrachtHint').textContent+=' · de agent heeft alvast iets ingevuld, pas gerust aan'; }
     state.bc=new Set(); const lab=[...(state.labels||[])].join(' ').toLowerCase(), ds=String((state.doc&&state.doc.soort)||'').toLowerCase();
     if(/financieel/.test(lab)||/factuur|creditnota/.test(ds)){ state.bc.add('posten'); if(state.doc&&state.doc.nr) state.bc.add('factuur'); }
     if(/offerte/.test(lab+' '+ds)) state.bc.add('offerte');
@@ -542,7 +553,7 @@ function renderKoppel(){
     d.innerHTML='<span class="n">'+n+'</span><span class="v'+(v?'':' empty')+'">'+(v||'niet gekoppeld')+badge+'</span>';
     const a=document.createElement('a'); a.href=url||'#';
     if(url){ a.target='_blank'; a.textContent='↗ SharePoint'; a.title='Projectmap openen op de site Projecten'; }
-    else { a.textContent=v?'wijzig':'koppel'; a.onclick=e=>{ e.preventDefault(); const t=document.querySelector('.tab[data-t="'+tab+'"]'); if(t) t.click(); const q=$({obj:'objQ',klant:'klantQ',lev:'levQ',doc:'docQ',map:'mapPlaats'}[tab]); if(q) q.focus(); }; }
+    else { a.textContent=v?'wijzig':'koppel'; a.onclick=e=>{ e.preventDefault(); $('koppelZoek').open=true; const t=document.querySelector('.tab[data-t="'+tab+'"]'); if(t) t.click(); const q=$({obj:'objQ',klant:'klantQ',lev:'levQ',doc:'docQ',map:'mapPlaats'}[tab]); if(q) q.focus(); }; }
     if(tab==='map'&&!url){ const pl=(state.obj&&state.obj.plaats)||$('mapPlaats').value.trim(); const s=document.createElement('a'); s.href=SITE_ALGEMEEN+(pl?'%2F'+encodeURIComponent(pl):''); s.target='_blank'; s.textContent=pl?'↗ map '+pl:'↗ site'; s.title=pl?'Site Projecten, map Algemeen/'+pl:'Site Projecten, map Algemeen (bladeren per plaats)'; s.style.marginRight='8px'; d.appendChild(s); }
     d.appendChild(a); c.appendChild(d);
   });
@@ -605,12 +616,12 @@ function setMode(mode,tekst){
   $('band').innerHTML='<b>'+t+'</b><span>'+esc(tekst||'')+'</span>';
   const am=mode==='archiefmail';
   $('arcEditCard').hidden=!am; $('routecard').hidden=false; $('logcard').hidden=false; $('leerCard').hidden=false;
-  $('logTitel').textContent=am?'Wat ik heb gevonden — controleer onderstaande en sla op':'Wat ik heb gevonden — controleer onderstaande en geef akkoord';
+  $('logTitel').textContent='Hoe kwam de agent hierop?';
   $('herkenOpnieuw').textContent=am?'laat de CENTRALE (opnieuw) herkennen':'opnieuw herkennen';
   $('btnOk').className='btn '+(am?'back':'ok'); $('btnOk').textContent=am?'← Terug':(DOORZETTEN_ACTIEF?'✓ Akkoord & doorzetten':'✓ Akkoord');
   $('btnSave').textContent=am?'Opslaan in archief':(DOORZETTEN_ACTIEF?'Alleen opslaan':'Opslaan'); $('btnSave').className='btn '+(am?'steel':'save');
 }
-function uitlegKnoppen(){ const u=$('uitlegKnoppen'); if(u&&!DOORZETTEN_ACTIEF) u.innerHTML='Akkoord zet de categorieën, verplaatst de mail per route en zet bij route C een concept klaar. Er wordt nooit iets verstuurd — dat doe jij.'; }
+function uitlegKnoppen(){ const u=$('uitlegKnoppen'); if(u&&!DOORZETTEN_ACTIEF) u.innerHTML='<b>Akkoord</b>: de agent voert de gekozen actie uit. <b>Er wordt nooit iets verstuurd, dat doe je altijd zelf.</b>'; }
 function inkomendTekst(){ if(!item) return 'Nog niet door de agent gelezen (oudere mail) — klik "opnieuw herkennen" of bekijk het archief.'; return item.Gecontroleerd?'✓ Door jou doorgezet. Je kunt nog aanpassen.':'Wacht op jouw antwoord'; }
 function fillFromItem(it2){
   state.labels=new Set(vals(it2.Labels)); state.vervolg=new Set(vals(it2.Vervolgacties)); state.relatie=val(it2.Relatie)||'Onbekend'; $('relatie').value=state.relatie;
@@ -681,15 +692,14 @@ async function loadRoutes(force){
   return ROUTECFG;
 }
 function routeInfo(k){ return (ROUTECFG||[]).find(x=>x.Title===k); }
-function routeZin(k){ const z=routeZinKern(k), r=routeInfo(k); return (r&&r.Omschrijving&&r.Omschrijving!=='(voorbeeld)'?'Wanneer: '+r.Omschrijving+' — ':'')+z; }
+function routeZin(k){ const z=routeZinKern(k), r=routeInfo(k); return z+(r&&r.Omschrijving&&r.Omschrijving!=='(voorbeeld)'?' Bedoeld voor: '+r.Omschrijving:''); }
 function routeZinKern(k){
   const r=routeInfo(k); if(!r) return '';
-  const ag=vals(r.Agents);
-  if(r.Actief===false) return 'Route staat uit in het control panel: de mail wordt alleen opgeslagen.';
-  if(r.Actie==='Concept antwoord') return 'Na doorzetten: de CENTRALE zet een concept-antwoord klaar'+(ag.length?' met '+ag.join(', '):'')+' in Concepten en geeft de mail de categorie ✎ Concept klaar. Jij verstuurt.';
-  if(r.Actie==='Concept doorsturen') return 'Na doorzetten: de CENTRALE zet een doorstuurconcept aan '+(r.DoorsturenAan||'-')+' klaar in Concepten en geeft de mail de categorie ✎ Concept klaar. Jij verstuurt.';
-  if(/^TO DO/i.test(r.Doelmap||'')) return 'Na Akkoord: de mail blijft in Postvak IN; opvolgen doe je met je Outlook-vlag. Klaar? Vinkje (Voltooid) = naar het archief.';
-  return 'Na doorzetten: de mail gaat naar '+(r.Doelmap||'-')+'.';
+  if(r.Actief===false) return 'Deze actie staat uit: de mail wordt alleen opgeslagen.';
+  if(r.Actie==='Concept antwoord') return 'Na Akkoord schrijft de agent een antwoord en zet het klaar in je map Concepten. Jij leest het na en verstuurt het zelf.';
+  if(r.Actie==='Concept doorsturen') return 'Na Akkoord zet de agent een doorstuurmail aan '+(r.DoorsturenAan||'-')+' klaar in je map Concepten. Jij controleert en verstuurt hem zelf.';
+  if(/^TO DO/i.test(r.Doelmap||'')) return 'De mail blijft in je Postvak IN. Moet je er nog iets mee? Zet de vlag. Klaar? Vink hem af, dan gaat hij vanzelf naar het archief.';
+  return 'Na Akkoord gaat de mail naar het archief.';
 }
 function toonRouteUitleg(){ const u=$('routeUitleg'); if(u) u.textContent=state.mode==='archief'?(state.route?'In het archief wordt de route vastgelegd als kenmerk (voor zoeken en leren). Er wordt niets verplaatst of verstuurd.':''):(routeZin(state.route)||''); u&&(u.style.display=u.textContent?'':'none'); }
 /* Overzicht: welke agents bij welke mailbox in welke fase (Henk = live uit het control panel) */
