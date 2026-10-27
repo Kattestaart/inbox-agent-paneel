@@ -1095,8 +1095,33 @@ async function loadArchief(force,q){
   const nr=++arc.nr;
   try{ const r=await api('archiefzoeken',body); if(nr!==arc.nr) return; arc.items=r.items||[]; arc.open=null; arc.sel=null; arc.q=q||''; arc.volgende=r.volgende||100; arc.meer=!!r.meer;
     $('arcInfo').textContent=(r.fout?'Let op: '+r.fout.slice(0,120)+' · ':'')+(q?arc.items.length+' mail(s) gevonden'+(q.trim()?' voor "'+q.trim()+'"':'')+snelTekst()+(r.totaal?' ('+r.totaal+' treffers in mails en bijlagen)':''):arc.items.length+' mail(s) in het archief rond deze mail');
-    if(q&&q.trim()) zoekOnthouden(q.trim()); renderArchief();
+    if(q&&q.trim()) zoekOnthouden(q.trim()); arc.mb=null; renderArchief();
+    if(q&&q.trim()) zoekMailbox(q.trim(),nr);
   }catch(e){ if(nr!==arc.nr) return; $('arcInfo').textContent=''; $('arcRes').innerHTML='<div class="msg err">'+esc(e.message)+'</div>'; }
+}
+/* ---------- Ook zoeken in de mailbox (mails die nog niet gearchiveerd zijn), incl. bijlagen ---------- */
+async function zoekMailbox(q,nr){
+  const woorden=q.split(/\s+/).filter(t=>!/^[a-z]+:/i.test(t)&&!/^-/.test(t)).join(' ').replace(/[*"=|]/g,' ').trim();
+  if(woorden.length<2||(!DEMO&&!(cfg&&cfg.mail))) return;
+  arc.mb={laden:true,items:[]}; renderMailbox();
+  try{ const r=DEMO?{ok:true,items:[{messageId:'<m9>',onderwerp:'Werkbon afmelden',vanNaam:'Online Service Order',van:'service@dfsg.nl',datum:'2026-10-16T08:00:00Z',map:'Werkbonnen',bijlage:true,fragment:'Monteur: '+woorden}]}:await api('mail',{zoek:woorden});
+    if(nr!==arc.nr) return; const inArchief=new Set(arc.items.map(x=>x.messageId));
+    arc.mb={laden:false,items:(r.items||[]).filter(x=>!x.concept&&!inArchief.has(x.messageId))}; renderMailbox();
+  }catch(e){ if(nr===arc.nr){ arc.mb={laden:false,items:[],fout:e.message}; renderMailbox(); } }
+}
+function renderMailbox(){
+  const c=$('arcRes'); if(!c) return; let blok=$('arcMb'); if(!arc.mb){ if(blok) blok.remove(); return; }
+  if(!blok){ blok=document.createElement('div'); blok.id='arcMb'; blok.className='arclist'; c.appendChild(blok); } else if(blok.parentNode!==c) c.appendChild(blok);
+  const mb=arc.mb; blok.innerHTML='<div class="arc-dag">Nog in je mailbox <span class="tiny">(niet gearchiveerd · zoekt ook in bijlagen)</span></div>';
+  if(mb.laden){ blok.insertAdjacentHTML('beforeend','<div class="tiny">Zoeken in je mailbox…</div>'); return; }
+  if(mb.fout){ blok.insertAdjacentHTML('beforeend','<div class="tiny">Zoeken in de mailbox mislukt: '+esc(mb.fout)+'</div>'); return; }
+  if(!mb.items.length){ blok.insertAdjacentHTML('beforeend','<div class="tiny">Niets gevonden in je mailbox.</div>'); return; }
+  const CLIP='<svg width="12" height="12" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" aria-label="met bijlage" style="vertical-align:-1px"><path d="M13.5 6.5 7.8 12.2a1.6 1.6 0 0 0 2.3 2.3l6-6a3.2 3.2 0 0 0-4.5-4.5l-6.2 6.2a4.8 4.8 0 0 0 6.8 6.8l5-5"/></svg>';
+  mb.items.forEach((x,i)=>{ const d=document.createElement('div'); d.className='arc klik'; d.tabIndex=0;
+    const m={id:'mb'+i,messageId:x.messageId,onderwerp:x.onderwerp,van:x.van,datum:x.datum,samenvatting:'',pdf:'',outlook:''};
+    d.innerHTML='<div class="top"><span>'+esc(fmtD(x.datum))+' · '+esc(x.map||'')+'</span><span>'+(x.bijlage?CLIP:'')+'</span></div><div class="ond">'+esc(x.onderwerp||'(geen onderwerp)')+'</div><div class="tiny">'+esc(x.vanNaam||x.van||'')+'</div>'+(x.fragment?'<div class="tiny" style="color:var(--muted)">'+esc(x.fragment)+'</div>':'');
+    d.onclick=ev=>{ if(ev.target.closest('a,button,.pv')) return; toonPreview(m,d); }; d.onkeydown=ev=>{ if(ev.target!==d) return; arcKaartNav(ev,d,m); };
+    blok.appendChild(d); });
 }
 /* ---------- Snelle filters + recente zoekopdrachten ---------- */
 const PERIODES=[['','Altijd'],['7','7 dagen'],['30','30 dagen'],['365','Dit jaar']];
@@ -1155,7 +1180,7 @@ function whyOf(m){ const x=arc.ctx||{}; const w=[]; if(x.messageId&&m.messageId=
 function fmtD(s){ if(!s) return ''; const d=new Date(s); return isNaN(d)?s:d.toLocaleDateString('nl-NL',{day:'2-digit',month:'2-digit',year:'numeric'})+' '+d.toLocaleTimeString('nl-NL',{hour:'2-digit',minute:'2-digit'}); }
 function renderArchief(){
   const c=$('arcRes'); c.innerHTML='';
-  if(!arc.items.length){ c.innerHTML='<span class="tiny">Niets gevonden in het archief.</span>'; return; }
+  if(!arc.items.length){ c.innerHTML='<span class="tiny">Niets gevonden in het archief.</span>'; if(arc.mb) renderMailbox(); return; }
   const list=[...arc.items].sort((a,b)=>((whyOf(b).includes('deze mail')?1:0)-(whyOf(a).includes('deze mail')?1:0))||String(b.datum||'').localeCompare(String(a.datum||'')));
   const nu=new Date(); const dag0=new Date(nu.getFullYear(),nu.getMonth(),nu.getDate()).getTime();
   const groep=s=>{ const t=new Date(s).getTime(); if(isNaN(t)) return 'Zonder datum'; if(t>=dag0) return 'Vandaag'; if(t>=dag0-864e5) return 'Gisteren'; if(t>=dag0-6*864e5) return 'Deze week'; if(t>=dag0-29*864e5) return 'Deze maand'; return new Date(t).toLocaleDateString('nl-NL',{month:'long',year:'numeric'}); };
@@ -1178,6 +1203,7 @@ function renderArchief(){
     c.appendChild(d);
     if(arc.sel===m.id){ arc.sel=null; toonPreview(m,d); }
   });
+  if(arc.mb) setTimeout(renderMailbox,0);
   if(arc.meer&&arc.q){ const b=document.createElement('button'); b.className='btn sm'; b.textContent='Meer resultaten'; b.onclick=async()=>{ b.disabled=true; b.textContent='Ophalen…';
     try{ const zb=bouwZoek(arc.q); const r=await api('archiefzoeken',{kql:zb.kql,filters:zb.filters,start:arc.volgende}); const ids=new Set(arc.items.map(x=>x.id)); (r.items||[]).forEach(x=>{ if(!ids.has(x.id)) arc.items.push(x); }); arc.volgende=r.volgende||arc.volgende+100; arc.meer=!!r.meer; $('arcInfo').textContent=arc.items.length+' mail(s) gevonden voor "'+arc.q+'"'+(r.totaal?' ('+r.totaal+' treffers)':''); renderArchief(); }catch(e){ b.textContent='Opnieuw'; b.disabled=false; } };
     c.appendChild(b); }
