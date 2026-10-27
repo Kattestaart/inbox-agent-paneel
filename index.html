@@ -476,6 +476,14 @@ const BCCHECKS=[['posten','Openstaande posten'],['factuur','Factuur'],['offerte'
 function renderOpdracht(){ const box=$('opdrachtBox'); if(!box) return; const ri=routeInfo(state.route)||{}; const a=ri.Actie||'';
   const toon=a==='Concept antwoord'||a==='Concept doorsturen'; box.hidden=!toon; if(!toon) return;
   $('opdrachtHint').textContent=a==='Concept doorsturen'?'wat moet de collega doen? komt bovenaan de doorstuurmail':'wat wil je antwoorden? leidend voor het concept';
+  /* Voorstel van de agent: opdracht en BC-zoekopdrachten alvast invullen; Henk keurt goed of past aan */
+  if(!state.opdrachtVoorstel){ state.opdrachtVoorstel=true;
+    const voorstel=String((item&&item.WatMoetIkDoen)||'').trim();
+    if(voorstel&&!$('opdracht').value.trim()){ $('opdracht').value=voorstel; $('opdrachtHint').textContent+=' · voorstel van de agent, pas aan of laat staan'; }
+    state.bc=new Set(); const lab=[...(state.labels||[])].join(' ').toLowerCase(), ds=String((state.doc&&state.doc.soort)||'').toLowerCase();
+    if(/financieel/.test(lab)||/factuur|creditnota/.test(ds)){ state.bc.add('posten'); if(state.doc&&state.doc.nr) state.bc.add('factuur'); }
+    if(/offerte/.test(lab+' '+ds)) state.bc.add('offerte');
+    if(/order/.test(lab+' '+ds)) state.bc.add('order'); }
   const c=$('bcChecks'); c.innerHTML=''; if(!state.bc) state.bc=new Set(); BCCHECKS.forEach(([k,l])=>c.appendChild(chip(l,state.bc.has(k),'',()=>{ state.bc.has(k)?state.bc.delete(k):state.bc.add(k); renderOpdracht(); }))); }
 function renderRoutes(agent){ const c=$('routes'); c.innerHTML='';
   const lijst=(ROUTECFG&&ROUTECFG.length)?ROUTECFG.map(r=>[r.Title,r.Naam]):ROUTES;
