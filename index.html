@@ -231,6 +231,20 @@
   .lz-meta span{overflow-wrap:anywhere}
   .lz-bijl{display:flex;flex-wrap:wrap;gap:6px;padding:10px 20px;border-bottom:1px solid var(--f-stroke);background:#fafafa}
   .lz-bijl:empty{display:none}
+  .snel{display:flex;flex-wrap:wrap;gap:4px 10px;align-items:center;font-size:12px;color:var(--muted)}
+  .snel .grp{display:flex;gap:4px;align-items:center;flex-wrap:wrap}
+  .snel .chip{padding:2px 8px;font-size:12px}
+  .snel .recent{color:var(--arch);cursor:pointer;text-decoration:underline dotted}
+  .arc .acts{flex-wrap:wrap;row-gap:4px} .arc .acts a{white-space:nowrap}
+  .arc.klik{cursor:pointer} .arc.sel{border-color:var(--arch);box-shadow:inset 3px 0 0 var(--arch),var(--f-shadow)}
+  .arc-dag{font-size:12px;font-weight:600;color:var(--muted);padding:6px 2px 0}
+  .pv{border-top:1px solid var(--line);margin-top:4px;padding-top:6px;display:grid;gap:6px;cursor:default}
+  .pv .meta{display:grid;grid-template-columns:auto 1fr;gap:1px 8px;font-size:12px} .pv .meta b{color:var(--muted);font-weight:600}
+  .pv .meta span{overflow-wrap:anywhere}
+  .pv .sam{font-size:12.5px;background:var(--steel-soft);border-radius:6px;padding:6px 8px}
+  .pv iframe{width:100%;height:340px;border:1px solid var(--line);border-radius:6px;background:#fff;resize:vertical}
+  .pv .bl{display:flex;flex-wrap:wrap;gap:6px}
+  .pv .leeg{font-size:12.5px;color:var(--muted)}
   .lz-b{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--f-stroke2);background:#fff;border-radius:4px;padding:5px 10px;font:inherit;font-size:13px;cursor:pointer;max-width:100%}
   .lz-b:hover{border-color:var(--brand)} .lz-b.on{border-color:var(--brand);box-shadow:inset 0 -2px 0 var(--brand)}
   .lz-b small{color:var(--f-text2)} .lz-b .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:320px}
@@ -275,7 +289,8 @@
   <div id="archief" style="display:none;gap:8px">
     <div class="card">
       <div class="lbl">Zoeken in mijn archief <span class="hint">ook in PDF's en bijlagen · <a class="link" href="#" id="arcHelpBtn">? zoekregels</a></span></div>
-      <div class="row"><input type="text" id="arcQ" placeholder="bijv. offerte label:Object datum:01-01-2026.."><button class="btn sm" id="arcGo">Zoek</button></div>
+      <div class="row"><input type="search" id="arcQ" placeholder="Typ een woord, naam, OBJ-nummer of e-mailadres…" autocomplete="off"><button class="btn sm" id="arcGo">Zoek</button></div>
+      <div class="snel" id="arcSnel"></div>
       <div class="tiny" id="arcHelp" hidden style="background:var(--steel-soft);border-radius:6px;padding:7px 9px;line-height:1.55">
         <b>Zoekregels</b> (vrij te combineren, net als filters in Business Central)<br>
         <code>brandmeld</code> = woord dat zo begint (vindt ook brandmeldinstallatie)<br>
@@ -434,6 +449,7 @@ function demoApi(name,body){ const base=[
   {id:346,datum:'2026-10-14T11:19:06Z',van:'ruud@blom-installatie.nl',onderwerp:'RE: Ringerskwartier – meterkasten detectie',objectnr:'',objectnaam:'',labels:['Techniek/Product'],richting:'Ingekomen',messageId:'<m0>',conversatieId:'c1',outlook:'#',pdf:'#'},
   {id:301,datum:'2026-10-09T08:02:00Z',van:'ruud@blom-installatie.nl',onderwerp:'Planning oplevering cluster 3',objectnr:'OBJ002111',objectnaam:'Ringerskwartier',labels:['Object','Planning'],richting:'Ingekomen',messageId:'<m2>',conversatieId:'c2',outlook:'#',pdf:'#'}];
   if(name==='archiefzoeken'){ const z=body.kql||Object.keys(body.filters||{}).length; return Promise.resolve({modus:z?'zoeken':'context',items:z?base.slice(0,2):base,totaal:z?5:0}); }
+  if(name==='mail'){ if(body.bijlage) return Promise.resolve({ok:false}); const b=base.find(x=>x.messageId===body.messageId); return Promise.resolve(b&&b.messageId!=='<m2>'?{ok:true,mail:{subject:b.onderwerp,from:{emailAddress:{name:'',address:b.van}},toRecipients:[{emailAddress:{address:'henk.kattestaart@dfsg.nl'}}],receivedDateTime:b.datum,body:{contentType:'html',content:'<p>Hoi Henk,</p><p>Voorbeeldtekst van de mail <b>'+esc(b.onderwerp)+'</b>. In Outlook zie je hier de echte inhoud.</p><p>Groet,<br>Ruud</p>'}},bijlagen:[{id:'a1',name:'Offerte VOF26-0412.pdf',size:182000,isInline:false}]}:{ok:false}); }
   if(name==='archiefwijzigen') return Promise.resolve({ok:true,labels:body.labels,objectactie:body.objectnr&&body.objectnr!=='-'?'koppel':(body.objectnr==='-'?'los':'geen'),gesprek:body.objectnr&&body.objectnr!=='-'?1:0,geleerd:true});
   if(name==='objecten') return Promise.resolve([{objectnr:'OBJ002111',naam:'Ringerskwartier',adres:'Ringersstraat 10',plaats:'Alkmaar',klantnr:'5001188',klantnaam:'Blom Installatietechniek'}]);
   if(name==='archiefherkennen') return Promise.resolve({ok:true,item:{Labels:[{Value:'Object'},{Value:'Techniek/Product'}],Objectnr:'OBJ002111',Objectnaam:'Ringerskwartier',Adres:'Ringersstraat 10',Plaats:'Alkmaar',Klantnr:'5001188',Klantnaam:'Blom Installatietechniek',Relatie:{Value:'Klant'},Samenvatting:'Ruud vraagt of de meterkasten gedetecteerd moeten worden.',WatMoetIkDoen:'Bevestigen volgens PvE.',Projectmap:'/sites/Projecten636/Gedeelde documenten/Algemeen/Alkmaar/Ringerskwartier'}});
@@ -779,7 +795,7 @@ async function showRoutes(){
   });
 }
 /* ---------- Archief-tab ---------- */
-let view='agent', arc={ctx:null,items:[],open:null,on:new Set(['deze','gesprek','afzender','object']),key:'',q:'',volgende:0,meer:false};
+let view='agent', arc={ctx:null,items:[],open:null,on:new Set(['deze','gesprek','afzender','object']),key:'',q:'',volgende:0,meer:false,snel:{periode:'',richting:''},pv:{},sel:null,nr:0};
 const canon=a=>{ const all=LABELS; return all.filter(l=>a.includes(l)).concat(a.filter(l=>!all.includes(l))); };
 /* labels: centrale lijst (archief + Inbox Agent) ophalen en nieuwe labels toevoegen */
 let labelsLoaded=false;
@@ -940,9 +956,64 @@ async function loadArchief(force,q){
   const zb=q?bouwZoek(q):null; const body=q?{kql:zb.kql,filters:zb.filters}:{top:30,messageId:arc.on.has('deze')?ctx.messageId:'',conversatieId:arc.on.has('gesprek')?ctx.conversatieId:'',van:arc.on.has('afzender')?ctx.van:'',objectnr:arc.on.has('object')?ctx.objectnr:''};
   if(!q&&!body.messageId&&!body.conversatieId&&!body.van&&!body.objectnr){ $('arcRes').innerHTML=''; $('arcInfo').textContent='Open een mail of zoek op een woord.'; return; }
   $('arcInfo').textContent=q?'Zoeken in het hele archief…':'Eerder contact ophalen…'; $('arcRes').innerHTML='';
-  try{ const r=await api('archiefzoeken',body); arc.items=r.items||[]; arc.open=null; arc.q=q||''; arc.volgende=r.volgende||100; arc.meer=!!r.meer;
-    $('arcInfo').textContent=(r.fout?'Let op: '+r.fout.slice(0,120)+' · ':'')+(q?arc.items.length+' mail(s) gevonden voor "'+q+'"'+(r.totaal?' ('+r.totaal+' treffers in mails en bijlagen)':''):arc.items.length+' mail(s) in het archief rond deze mail'); renderArchief();
-  }catch(e){ $('arcInfo').textContent=''; $('arcRes').innerHTML='<div class="msg err">'+esc(e.message)+'</div>'; }
+  const nr=++arc.nr;
+  try{ const r=await api('archiefzoeken',body); if(nr!==arc.nr) return; arc.items=r.items||[]; arc.open=null; arc.sel=null; arc.q=q||''; arc.volgende=r.volgende||100; arc.meer=!!r.meer;
+    $('arcInfo').textContent=(r.fout?'Let op: '+r.fout.slice(0,120)+' · ':'')+(q?arc.items.length+' mail(s) gevonden'+(q.trim()?' voor "'+q.trim()+'"':'')+snelTekst()+(r.totaal?' ('+r.totaal+' treffers in mails en bijlagen)':''):arc.items.length+' mail(s) in het archief rond deze mail');
+    if(q&&q.trim()) zoekOnthouden(q.trim()); renderArchief();
+  }catch(e){ if(nr!==arc.nr) return; $('arcInfo').textContent=''; $('arcRes').innerHTML='<div class="msg err">'+esc(e.message)+'</div>'; }
+}
+/* ---------- Snelle filters + recente zoekopdrachten ---------- */
+const PERIODES=[['','Altijd'],['7','7 dagen'],['30','30 dagen'],['365','Dit jaar']];
+function snelFilters(){ const f={}, s=arc.snel; if(s.periode){ const d=new Date(); if(s.periode==='365') d.setMonth(0,1); else d.setDate(d.getDate()-(+s.periode)); f.vanaf=d.toISOString().slice(0,10); } if(s.richting) f.richting=s.richting; return f; }
+function snelTekst(){ const s=arc.snel, t=[]; if(s.periode) t.push((PERIODES.find(p=>p[0]===s.periode)||[])[1]); if(s.richting) t.push(s.richting.toLowerCase()); return t.length?' · '+t.join(', '):''; }
+function zoekRecent(){ try{ return JSON.parse(localStorage.getItem('arcRecent')||'[]'); }catch(e){ return []; } }
+function zoekOnthouden(q){ try{ const l=[q,...zoekRecent().filter(x=>x!==q)].slice(0,5); localStorage.setItem('arcRecent',JSON.stringify(l)); }catch(e){} }
+function renderSnel(){
+  const c=$('arcSnel'); if(!c) return; c.innerHTML='';
+  const g1=document.createElement('div'); g1.className='grp';
+  PERIODES.forEach(([k,t])=>g1.appendChild(chip(t,arc.snel.periode===k,'small',()=>{ arc.snel.periode=k; renderSnel(); arcSearch(); })));
+  const g2=document.createElement('div'); g2.className='grp';
+  [['','In + uit'],['Ingekomen','Ingekomen'],['Verzonden','Verzonden']].forEach(([k,t])=>g2.appendChild(chip(t,arc.snel.richting===k,'small',()=>{ arc.snel.richting=k; renderSnel(); arcSearch(); })));
+  c.appendChild(g1); c.appendChild(g2);
+  const rec=zoekRecent(); if(rec.length&&!$('arcQ').value.trim()){ const g3=document.createElement('div'); g3.className='grp'; g3.appendChild(document.createTextNode('Recent:'));
+    rec.forEach(q=>{ const a=document.createElement('span'); a.className='recent'; a.textContent=q; a.onclick=()=>{ $('arcQ').value=q; arcSearch(); }; g3.appendChild(a); }); c.appendChild(g3); }
+}
+/* ---------- Voorbeeld (preview) van een archiefmail ---------- */
+function pvBijlage(m,b,knop){
+  knop.disabled=true; const oud=knop.innerHTML; knop.innerHTML='<span class="nm">'+esc(b.name)+' ophalen…</span>';
+  api('mail',{messageId:m.messageId,bijlage:b.id}).then(r=>{ if(!r.ok||!r.inhoud) throw new Error('bijlage niet gevonden');
+    const bin=atob(r.inhoud); const u8=new Uint8Array(bin.length); for(let i=0;i<bin.length;i++) u8[i]=bin.charCodeAt(i);
+    const nm=(b.name||'').toLowerCase(); const type=nm.endsWith('.pdf')?'application/pdf':(r.type||b.contentType||'application/octet-stream');
+    const url=URL.createObjectURL(new Blob([u8],{type})); const a=document.createElement('a'); a.href=url; a.download=b.name; if(type==='application/pdf') a.target='_blank'; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(url),60000);
+  }).catch(e=>{ alert('Bijlage openen mislukt: '+e.message); }).finally(()=>{ knop.disabled=false; knop.innerHTML=oud; });
+}
+async function toonPreview(m,d){
+  let pv=d.querySelector('.pv'); if(pv){ pv.remove(); d.classList.remove('sel'); if(arc.sel===m.id) arc.sel=null; return; }
+  document.querySelectorAll('#arcRes .pv').forEach(x=>{ x.parentNode.classList.remove('sel'); x.remove(); });
+  arc.sel=m.id; d.classList.add('sel'); pv=document.createElement('div'); pv.className='pv'; pv.onclick=e=>e.stopPropagation(); d.appendChild(pv);
+  const sam=m.samenvatting?'<div class="sam"><b>Samenvatting:</b> '+esc(m.samenvatting)+'</div>':'';
+  pv.innerHTML=sam+'<div class="leeg">Mail ophalen…</div>';
+  let r=arc.pv[m.messageId];
+  try{ if(!r){ r=m.messageId?await api('mail',{messageId:m.messageId}):{ok:false}; arc.pv[m.messageId]=r; } }catch(e){ r={ok:false,fout:e.message}; }
+  if(!pv.isConnected) return;
+  if(!r.ok||!r.mail){ pv.innerHTML=sam+'<div class="leeg">'+(r.fout?'Ophalen mislukt: '+esc(r.fout):'Deze mail staat niet meer in je mailbox.')+(m.pdf?' <a class="link" target="_blank" href="'+esc(m.pdf)+'">Open de PDF in het archief</a>':'')+'</div>'; return; }
+  const x=r.mail, aan=(x.toRecipients||[]).map(lzAdres).join('; '), cc=(x.ccRecipients||[]).map(lzAdres).join('; ');
+  pv.innerHTML='<div class="meta"><b>Van</b><span>'+esc(lzAdres(x.from))+'</span>'+(aan?'<b>Aan</b><span>'+esc(aan)+'</span>':'')+(cc?'<b>CC</b><span>'+esc(cc)+'</span>':'')+'<b>Datum</b><span>'+esc(fmtD(x.receivedDateTime||x.sentDateTime))+'</span></div>'+sam;
+  const bijl=(r.bijlagen||[]).filter(b=>!b.isInline);
+  if(bijl.length){ const bl=document.createElement('div'); bl.className='bl'; bijl.forEach(b=>{ const k=document.createElement('button'); k.className='lz-b'; k.title=b.name+' openen'; k.innerHTML='<span class="nm">📎 '+esc(b.name)+'</span><small>'+lzGrootte(b.size)+'</small>'; k.onclick=()=>pvBijlage(m,b,k); bl.appendChild(k); }); pv.appendChild(bl); }
+  const html=(x.body&&x.body.contentType==='html')?x.body.content:'<pre style="white-space:pre-wrap;font:13px/1.5 Segoe UI,sans-serif">'+esc(x.body&&x.body.content||'')+'</pre>';
+  const f=document.createElement('iframe'); f.title='Inhoud van de mail'; f.setAttribute('sandbox','allow-popups allow-popups-to-escape-sandbox allow-same-origin');
+  f.srcdoc='<!doctype html><meta charset="utf-8"><base target="_blank"><style>body{font:13px/1.5 "Segoe UI",system-ui,sans-serif;color:#242424;margin:10px 12px;overflow-wrap:anywhere}img[src^="cid:"]{display:none}img{max-width:100%;height:auto}table{max-width:100%}</style>'+html;
+  pv.appendChild(f);
+  const lk=document.createElement('div'); lk.className='tiny';
+  lk.innerHTML=(m.outlook?'<a class="link" target="_blank" href="'+esc(m.outlook)+'">Openen in Outlook</a>':'')+(m.pdf?(m.outlook?' · ':'')+'<a class="link" target="_blank" href="'+esc(m.pdf)+'">PDF in archief</a>':'');
+  pv.appendChild(lk);
+}
+function arcKaartNav(e,d,m){
+  if(e.key==='Enter'||e.key===' '){ e.preventDefault(); toonPreview(m,d); return; }
+  if(e.key!=='ArrowDown'&&e.key!=='ArrowUp') return; e.preventDefault();
+  const kaarten=[...document.querySelectorAll('#arcRes .arc')]; const i=kaarten.indexOf(d); const n=kaarten[i+(e.key==='ArrowDown'?1:-1)]; if(!n) return;
+  n.focus(); if(arc.sel) n.click();
 }
 function whyOf(m){ const x=arc.ctx||{}; const w=[]; if(x.messageId&&m.messageId===x.messageId) w.push('deze mail'); else { if(x.conversatieId&&m.conversatieId===x.conversatieId) w.push('gesprek'); if(x.van&&String(m.van||'').toLowerCase()===x.van) w.push('afzender'); if(x.objectnr&&m.objectnr===x.objectnr) w.push('object'); } return w; }
 function fmtD(s){ if(!s) return ''; const d=new Date(s); return isNaN(d)?s:d.toLocaleDateString('nl-NL',{day:'2-digit',month:'2-digit',year:'numeric'})+' '+d.toLocaleTimeString('nl-NL',{hour:'2-digit',minute:'2-digit'}); }
@@ -950,8 +1021,12 @@ function renderArchief(){
   const c=$('arcRes'); c.innerHTML='';
   if(!arc.items.length){ c.innerHTML='<span class="tiny">Niets gevonden in het archief.</span>'; return; }
   const list=[...arc.items].sort((a,b)=>((whyOf(b).includes('deze mail')?1:0)-(whyOf(a).includes('deze mail')?1:0))||String(b.datum||'').localeCompare(String(a.datum||'')));
+  const nu=new Date(); const dag0=new Date(nu.getFullYear(),nu.getMonth(),nu.getDate()).getTime();
+  const groep=s=>{ const t=new Date(s).getTime(); if(isNaN(t)) return 'Zonder datum'; if(t>=dag0) return 'Vandaag'; if(t>=dag0-864e5) return 'Gisteren'; if(t>=dag0-6*864e5) return 'Deze week'; if(t>=dag0-29*864e5) return 'Deze maand'; return new Date(t).toLocaleDateString('nl-NL',{month:'long',year:'numeric'}); };
+  let vorige=null;
   list.forEach(m=>{
-    const w=whyOf(m); const d=document.createElement('div'); d.className='arc'+(w.includes('deze mail')?' deze':'');
+    const w=whyOf(m); if(!w.includes('deze mail')){ const g=groep(m.datum); if(g!==vorige){ const h=document.createElement('div'); h.className='arc-dag'; h.textContent=g; c.appendChild(h); vorige=g; } }
+    const d=document.createElement('div'); d.className='arc'+(w.includes('deze mail')?' deze':'');
     const labs=vals(m.labels); const rich=val(m.richting);
     d.innerHTML='<div class="top"><span>'+esc(fmtD(m.datum))+(rich?' · '+esc(rich):'')+w.map(x=>' <span class="why">'+esc(x)+'</span>').join('')+'</span><span class="wl-route">'+esc(String(m.route||'').replace(/^[A-Z] /,''))+'</span></div>'
       +'<div class="ond">'+esc(m.onderwerp||'(geen onderwerp)')+'</div>'
@@ -960,10 +1035,12 @@ function renderArchief(){
     const acts=document.createElement('div'); acts.className='acts';
     if(m.outlook){ const a=document.createElement('a'); a.href=m.outlook; a.target='_blank'; a.textContent='↗ Outlook'; a.title='Origineel openen (beantwoorden/doorsturen)'; acts.appendChild(a); }
     if(m.pdf){ const a=document.createElement('a'); a.href=m.pdf; a.target='_blank'; a.textContent='↗ PDF'; a.title='Mail met bijlagen in het archief'; acts.appendChild(a); }
-    const e=document.createElement('a'); e.textContent=WEB?'✎ Openen / wijzigen':'✎ Wijzig / herkennen'; e.onclick=()=>openArchiefMail(m); acts.appendChild(e);
-    if(WEB){ d.classList.add('klik'); d.tabIndex=0; d.onclick=ev=>{ if(ev.target.closest('a')) return; openArchiefMail(m); }; d.onkeydown=ev=>{ if(ev.key==='Enter') openArchiefMail(m); }; }
+    const v=document.createElement('a'); v.textContent='👁 Voorbeeld'; v.title='Mail en bijlagen hier bekijken (of klik op de mail)'; v.onclick=ev=>{ ev.stopPropagation(); toonPreview(m,d); }; acts.prepend(v);
+    const e=document.createElement('a'); e.textContent=WEB?'✎ Openen / wijzigen':'✎ Wijzig / herkennen'; e.onclick=ev=>{ ev.stopPropagation(); openArchiefMail(m); }; acts.appendChild(e);
+    d.classList.add('klik'); d.tabIndex=0; d.onclick=ev=>{ if(ev.target.closest('a,button,.pv')) return; toonPreview(m,d); }; d.onkeydown=ev=>{ if(ev.target!==d) return; arcKaartNav(ev,d,m); };
     d.appendChild(acts);
     c.appendChild(d);
+    if(arc.sel===m.id){ arc.sel=null; toonPreview(m,d); }
   });
   if(arc.meer&&arc.q){ const b=document.createElement('button'); b.className='btn sm'; b.textContent='Meer resultaten'; b.onclick=async()=>{ b.disabled=true; b.textContent='Ophalen…';
     try{ const zb=bouwZoek(arc.q); const r=await api('archiefzoeken',{kql:zb.kql,filters:zb.filters,start:arc.volgende}); const ids=new Set(arc.items.map(x=>x.id)); (r.items||[]).forEach(x=>{ if(!ids.has(x.id)) arc.items.push(x); }); arc.volgende=r.volgende||arc.volgende+100; arc.meer=!!r.meer; $('arcInfo').textContent=arc.items.length+' mail(s) gevonden voor "'+arc.q+'"'+(r.totaal?' ('+r.totaal+' treffers)':''); renderArchief(); }catch(e){ b.textContent='Opnieuw'; b.disabled=false; } };
@@ -1038,14 +1115,21 @@ function bouwZoek(invoer){
     if(veld==='tot'){ if(datumIso(waarde)) filters.tot=datumIso(waarde); return; }
     if(/^".*"$/.test(t)){ kql.push(t); return; }
     if(t==='OR'||t==='AND'){ kql.push(t); return; }
+    // Herkenning zonder veldnaam: OBJ-nummer, e-mailadres en datum(bereik) werken direct als filter
+    if(/^obj\d{3,}$/i.test(t)){ filters.objectnr=t.toUpperCase(); return; }
+    if(/^[^\s@]+@[^\s@]+\.[a-z]{2,}$/i.test(t)){ filters.van=t.toLowerCase(); return; }
+    const dr=t.match(/^(\d{1,2}-\d{1,2}-\d{4})?\.\.(\d{1,2}-\d{1,2}-\d{4})?$/)||t.match(/^(\d{1,2}-\d{1,2}-\d{4})$/);
+    if(dr&&(dr[1]||dr[2])){ if(!t.includes('..')){ filters.vanaf=filters.tot=datumIso(dr[1]); } else { if(dr[1]) filters.vanaf=datumIso(dr[1]); if(dr[2]) filters.tot=datumIso(dr[2]); } return; }
     if(t.startsWith('=')){ const w=kw(t.slice(1)); if(w) kql.push(w); return; }
     if(t.startsWith('-')){ const w=kw(t.slice(1)); if(w) kql.push('-'+w+'*'); return; }
     if(t.includes('|')){ const ws=t.split('|').map(kw).filter(Boolean); if(ws.length) kql.push('('+ws.map(w=>w+'*').join(' OR ')+')'); return; }
     const w=kw(t); if(w) kql.push(w+'*');
   });
-  return {kql:kql.join(' '),filters};
+  return {kql:kql.join(' '),filters:Object.assign(snelFilters(),filters)};
 }
-function arcSearch(){ const q=$('arcQ').value.trim(); if(q.length<2){ loadArchief(true); return; } loadArchief(true,q); }
+function arcSearch(){ clearTimeout(arc.typ); const q=$('arcQ').value.trim(); const snel=Object.keys(snelFilters()).length;
+  if(q.length<2&&!snel){ arc.key=''; renderSnel(); loadArchief(true); return; } renderSnel(); loadArchief(true,q.length>=2?q:' '); }
+function arcTypen(){ clearTimeout(arc.typ); const q=$('arcQ').value.trim(); if(q.length===1) return; arc.typ=setTimeout(arcSearch,q?450:150); }
 function arcHelp(e){ e.preventDefault(); $('arcHelp').hidden=!$('arcHelp').hidden; }
 
 function demo(){
@@ -1068,7 +1152,7 @@ function demo(){
   msg('','ok');
   item.Gecontroleerd=false; setMode('inkomend',inkomendTekst()); $('btnHerken').onclick=herken; $('arcBack').onclick=e=>{ e.preventDefault(); terugNaarArchief(); };
   $('btnOk').onclick=()=>state.mode==='archief'?terugNaarArchief():msg('Voorbeeldpagina: niets opgeslagen of verplaatst. In Outlook zet Akkoord & doorzetten de mail door (verplaatsen, concepten); Alleen opslaan bewaart je correcties.','warn'); $('btnSave').onclick=()=>state.mode==='archief'?saveArchief():$('btnOk').onclick();
-  document.querySelectorAll('.vt').forEach(t=>t.onclick=()=>setView(t.dataset.v)); $('arcGo').onclick=arcSearch; $('arcQ').addEventListener('keydown',e=>{ if(e.key==='Enter') arcSearch(); }); $('arcHelpBtn').onclick=arcHelp;
+  document.querySelectorAll('.vt').forEach(t=>t.onclick=()=>setView(t.dataset.v)); $('arcGo').onclick=arcSearch; $('arcQ').addEventListener('keydown',e=>{ if(e.key==='Enter') arcSearch(); }); $('arcQ').addEventListener('input',arcTypen); $('arcHelpBtn').onclick=arcHelp; renderSnel();
   if(/[?&]view=archief/.test(location.search)) setTimeout(()=>setView('archief'),50);
   $('main').style.display='grid'; $('bar').style.display='grid';
 }
@@ -1107,7 +1191,7 @@ Office.onReady(()=>{
   $('btnHerken').onclick=herken; $('herkenOpnieuw').onclick=e=>{ e.preventDefault(); if(state.mode==='archief') herken(); else herkenInbox(e); }; $('arcBack').onclick=e=>{ e.preventDefault(); terugNaarArchief(); }; $('webTerug').onclick=e=>{ e.preventDefault(); showWerklijst(); };
   document.querySelectorAll('.vt').forEach(t=>t.addEventListener('keydown',e=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); t.click(); } }));
   document.querySelectorAll('.vt').forEach(t=>t.onclick=()=>setView(t.dataset.v));
-  $('arcGo').onclick=arcSearch; $('arcQ').addEventListener('keydown',e=>{ if(e.key==='Enter') arcSearch(); }); $('arcHelpBtn').onclick=arcHelp;
+  $('arcGo').onclick=arcSearch; $('arcQ').addEventListener('keydown',e=>{ if(e.key==='Enter') arcSearch(); }); $('arcQ').addEventListener('input',arcTypen); $('arcHelpBtn').onclick=arcHelp; renderSnel();
   try{ Office.context.mailbox.addHandlerAsync(Office.EventType.ItemChanged,()=>load()); }catch(e){}
   load();
   const vq=(location.search.match(/[?&]view=(inbox|archief|routes)/)||[])[1]; if(vq==='archief') setTimeout(()=>setView('archief'),300); if(vq==='routes') setTimeout(()=>setView('routes'),300);
