@@ -319,7 +319,7 @@
     <div class="card" id="labelCard">
       <div class="lbl">Zo komt het op de mail in Outlook <span class="hint">max. twee categorieën + vlag</span></div>
       <div class="chips" id="olPreview"></div>
-      <div class="tiny">Categorie = het object (anders klant, anders leverancier) en zolang nodig de status. Klant, leverancier en onderwerp worden niet als categorie gezet, maar wel vastgelegd en meegenomen naar het archief.</div>
+      <div class="tiny">Categorie = het object (anders klant, anders leverancier, anders het onderwerp) en zolang nodig de status. Klant, leverancier en onderwerp worden niet als categorie gezet, maar wel vastgelegd en meegenomen naar het archief.</div>
       <div class="lbl" style="margin-top:8px">Onderwerp · waar gaat het over <span class="hint">vastgelegd, geen categorie</span></div>
       <div class="chips" id="labels"></div>
     </div>
@@ -453,11 +453,12 @@ function watCategorie(){
   if(o.objectnr) return '1 Object · '+o.objectnr+(o.naam?' · '+o.naam:'');
   if(k.naam) return '2 Klant · '+(k.nr?k.nr+' · ':'')+k.naam;
   if(l.naam) return '3 Leverancier · '+(l.nr?l.nr+' · ':'')+l.naam;
-  return '';
+  const ond=[...state.labels].find(x=>x&&!DEKT_KOPPELING.includes(x));
+  return ond?'4 · '+ond:'';
 }
 function renderPreview(){ const c=$('olPreview'); if(!c) return; c.innerHTML='';
   const add=(t,cls)=>{ const s=document.createElement('span'); s.className='chip '+(cls||''); s.style.cursor='default'; s.textContent=t; c.appendChild(s); };
-  const w=watCategorie(); w?add(w,'on'):add('geen object/klant/leverancier','');
+  const w=watCategorie(); w?add(w,'on'):add('kies een object, klant, leverancier of onderwerp','');
   add('0 · Te controleren → weg na Akkoord','agent');
   if(item&&item.ConceptGemaakt) add('✎ Concept klaar','on');
   const r=(state.route||'').charAt(0), ad=$('actieDatum')&&$('actieDatum').value;
