@@ -379,10 +379,12 @@
     <div class="card" id="leerCard">
       <div class="lbl">Waarom &amp; toelichting <span class="hint">helpt de agent leren</span></div>
       <textarea id="correctie" placeholder="Bijv. 'Kibo is onze accountant' of 'Henk alleen in CC, actie ligt bij Planning' — mag leeg blijven bij akkoord"></textarea>
-      <div class="lbl">Leer de CENTRALE <span class="hint" id="afspraakInfo"></span></div>
-      <label class="switch" style="font-size:13px;align-items:flex-start"><input type="checkbox" id="leerAan" style="margin-top:3px"> <span>Mails zoals deze voortaan zo voorstellen: zelfde afzender, onderwerp en inhoud (cijfers, datums en tijden tellen niet mee).</span></label>
-      <textarea id="leerInstructie" placeholder="Instructie voor de CENTRALE bij dit type mail, bijv. 'Back-up geslaagd: altijd archiveren, geen actie nodig.'"></textarea>
-      <div class="tiny">Vertrouwen groeit vanzelf: na 3× ongewijzigd akkoord mag hij ze bundelen, na 10× (alleen Archief/Lezen) zelfstandig afhandelen. Wijzig je de route, dan begint hij opnieuw. In te zien en aan/uit te zetten bij Routes.</div>
+      <div class="tiny">Waarom &amp; toelichting is een <i>hint</i> voor de agent bij volgende mails van deze afzender of uit dit gesprek.</div>
+      <div class="lbl" style="margin-top:10px">Vaste afspraak voor dit soort mail <span class="hint" id="afspraakInfo"></span></div>
+      <label class="switch" style="font-size:13px;align-items:flex-start"><input type="checkbox" id="leerAan" style="margin-top:3px"> <span>Mails van <b>deze afzender</b> met <b>dit onderwerp</b> (cijfers en datums tellen niet mee) voortaan <b>altijd zo</b> afhandelen: dezelfde actie en labels.</span></label>
+      <div class="tiny" id="afspraakToets"></div>
+      <textarea id="leerInstructie" placeholder="Wanneer geldt deze afspraak? Bijv. 'Back-up van de server met [Success] in het onderwerp: altijd archiveren, geen actie nodig.'"></textarea>
+      <div class="tiny">Niveau stel je in bij Routes → Vaste afspraken: <b>Voorstel</b> (jij keurt goed) → <b>Bundel</b> (meerdere in één klik) → <b>Automatisch</b> (alleen Archiveren/Lezen, met verplicht woord, verboden woorden en eerst een proefweek).</div>
     </div>
 
     <details class="card" id="meer" hidden>
@@ -437,6 +439,20 @@ const val=x=>(x&&typeof x==='object'&&'Value' in x)?x.Value:(x||'');
 const vals=a=>Array.isArray(a)?a.map(val):[];
 const norm=s=>String(s||'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
 
+/* Vaste afspraak: toets op de mailgeschiedenis van deze afzender, zodat de afspraak niet te algemeen is */
+async function toetsAfspraak(){ const t=$('afspraakToets'); if(!t) return; if(!$('leerAan').checked){ t.innerHTML=''; return; }
+  if(DEMO||!cfg||!cfg.regels){ t.textContent='(toets alleen in Outlook)'; return; }
+  const oi=(typeof Office!=='undefined'&&Office.context&&Office.context.mailbox&&Office.context.mailbox.item)||null;
+  const mid=oi?oi.internetMessageId:(item&&item.MessageID)||''; if(!mid){ t.textContent='Geen Message-ID; toets niet mogelijk.'; return; }
+  t.textContent='Toetsen op je mailbox…';
+  try{ const r=await api('regels',{actie:'toets',messageId:mid}); const k=r.sleutels||{}, x=r.toets||{};
+    const actie=actieLabel(state.route,routeInfo(state.route),'')||'(kies een actie)';
+    const raakt=(x.raaktOnderwerpen||[]), niet=(x.nietGeraakt||[]);
+    let h='<b>Precies:</b> afzender <b>'+esc(k.afzender||'?')+'</b> · onderwerp gelijk aan <b>'+esc(raakt[0]||k.voorbeeld||'?')+'</b> → <b>'+esc(actie)+'</b>.<br>';
+    h+='<b>Toets:</b> geldt voor '+(x.raakt||0)+' van de laatste '+(x.totaal||0)+' mails van deze afzender. ';
+    if(raakt.length>1) h+='<span class="msg warn">Let op: raakt '+raakt.length+' verschillende onderwerpen — mogelijk te algemeen: '+raakt.map(esc).join(' · ')+'</span><br>';
+    if(niet.length) h+='Niet geraakt (blijven normaal): '+niet.slice(0,5).map(esc).join(' · ')+(niet.length>5?' …':'');
+    t.innerHTML=h; }catch(e){ t.textContent='Toets mislukt: '+e.message; } }
 /* Alleen routes waar echt een workflow achter zit, als actieknop (Lezen / Beantwoorden / Doorsturen / Archiveren) */
 function actieLabel(k,ri,n){
   const a=(ri&&ri.Actie)||'', naam=(ri&&ri.Naam)||n;
@@ -568,7 +584,7 @@ function fillFromItem(it2){
   $('samenvatting').textContent=it2.Samenvatting||''; $('todo').innerHTML=it2.WatMoetIkDoen?('<b>Te doen:</b> '+esc(it2.WatMoetIkDoen)):''; state.todoTekst=it2.WatMoetIkDoen||''; $('vervolgtoel').textContent=(it2.VervolgToelichting||'').replace(/\n/g,' · ');
 }
 async function load(){
-  $('main').style.display='none'; $('bar').style.display='none'; arc.key='';
+  $('main').style.display='none'; $('bar').style.display='none'; arc.key=''; $('leerAan').onchange=toetsAfspraak; if($('afspraakToets')) $('afspraakToets').innerHTML='';
   if(!loadCfg()){ $('setup').style.display='grid'; setMode('inkomend','Eenmalige instelling nodig'); msg('Eerst de API-configuratie instellen: plak de regel die je van Henk kreeg en klik Opslaan.','warn'); return; }
   $('setup').style.display='none'; loadLabels(); loadRoutes().then(()=>{ try{ if(state.route) renderRoutes(item&&(val(item.Route)||'G').charAt(0)); }catch(e){} });
   const it=Office.context.mailbox.item; if(!it){ if(WEB){ showWerklijst(); return; } msg('Selecteer een mail.','warn'); return; }
@@ -583,7 +599,7 @@ async function load(){
     state.itemId=item.ID; state.route=(henkRoute||val(item.Route)||'G').charAt(0); fillFromItem(item);
     $('richting').textContent=val(item.Richting)||'–'; $('agentzegt').textContent=(val(item.Route)||'').replace(/^[A-G] /,'')+' · zekerheid '+(val(item.Zekerheid)||'?')+(item.Gecontroleerd?' · ✓ gecontroleerd':'');
     $('correctie').value=item.Correctie||''; if(view==='agent') setMode('inkomend',inkomendTekst());
-    $('leerAan').checked=false; $('leerInstructie').value=''; const af=item.Afspraak||(window.__wlItem&&window.__wlItem.afspraak); const afn=val(item.AfspraakNiveau)||(window.__wlItem&&window.__wlItem.afspraakNiveau); $('afspraakInfo').innerHTML=af?('<span class="afspraak">volgens afspraak '+esc(String(af).split(' ')[0])+' · '+esc(afn||'Voorstel')+'</span>'):'';
+    $('leerAan').checked=false; if($('afspraakToets')) $('afspraakToets').innerHTML=''; $('leerInstructie').value=''; const af=item.Afspraak||(window.__wlItem&&window.__wlItem.afspraak); const afn=val(item.AfspraakNiveau)||(window.__wlItem&&window.__wlItem.afspraakNiveau); $('afspraakInfo').innerHTML=af?('<span class="afspraak">volgens afspraak '+esc(String(af).split(' ')[0])+' · '+esc(afn||'Voorstel')+'</span>'):'';
     runLog(item);
     renderRoutes(agentRoute); renderLabels(vals(item.Labels)); renderVervolg(vals(item.Vervolgacties)); renderAll();
     const nk=['Objectnr','Klantnr','Leveranciernr','Documentnr','Projectmap'].filter(f=>item[f]).length;
@@ -945,7 +961,7 @@ function openArchiefMail(m){
   fillFromItem(it2); const doorAgent=/^CENTRALE|^BC|^Inbox Agent/.test(String(m.koppelbron||'')); ['obj','klant','lev','doc','map'].forEach(k=>state.src[k]=doorAgent?'agent':'jij');
   $('subject').textContent=m.onderwerp||'(geen onderwerp)'; $('from').textContent=(m.van||'')+(m.datum?' · '+fmtD(m.datum):'');
   $('agentzegt').textContent='gearchiveerd'+(m.koppelbron?' · '+m.koppelbron:''); $('richting').textContent=val(m.richting)||'–';
-  $('correctie').value=''; $('mapPlaats').value=m.plaats||''; state.route=String(m.route||'').charAt(0); $('leerAan').checked=false; $('leerInstructie').value=''; $('afspraakInfo').innerHTML=''; runLog(it2);
+  $('correctie').value=''; $('mapPlaats').value=m.plaats||''; state.route=String(m.route||'').charAt(0); $('leerAan').checked=false; if($('afspraakToets')) $('afspraakToets').innerHTML=''; $('leerInstructie').value=''; $('afspraakInfo').innerHTML=''; runLog(it2);
   ['objRes','klantRes','levRes','docRes','mapRes'].forEach(i=>$(i).innerHTML='');
   $('arcPdf').href=m.pdf||'#'; $('arcPdf').style.display=m.pdf?'':'none'; $('arcOutlook').href=m.outlook||'#'; $('arcOutlook').style.display=m.outlook?'':'none';
   renderRoutes(state.route); renderLabels([]); renderVervolg([]); renderAll();
