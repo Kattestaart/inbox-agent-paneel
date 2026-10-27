@@ -246,6 +246,8 @@
   .meter span.ok{background:#2e9e5b} .meter span.mid{background:#d79a1c} .meter span.laag{background:#c4314b} .meter i{position:absolute;top:-3px;bottom:-3px;width:2px;background:#333}
   .perrij{display:grid;gap:2px;margin-top:6px;font-size:13px} .perrij div{display:flex;justify-content:space-between;border-top:1px solid var(--line);padding-top:3px} .perrij small{color:var(--muted)}
   .fasen{margin:4px 0;padding-left:18px;font-size:13px;line-height:1.45} .fasen li{margin:2px 0} .mbx{display:flex;flex-wrap:wrap;gap:4px}
+  .leesrij{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:6px} .leesrij .tiny{flex:1 1 180px}
+  #btnLees[disabled]{opacity:.7;cursor:progress}
   .werkwijze{background:var(--steel-soft);border-radius:8px;padding:8px 12px;font-size:13px;line-height:1.45;display:grid;gap:6px}
   .werkwijze .btn{justify-self:start} .werkwijze[hidden]{display:none}
   .voorstel{display:grid;margin-top:6px;border:1px solid var(--line);border-radius:8px;overflow:hidden}
@@ -260,7 +262,7 @@
   .voorstel .let{padding:6px 10px;font-size:12.5px;color:#7a4a00;background:#fff8e8;border-top:1px solid #f0c97a}
   .leerhint{font-size:12.5px;background:#fff8e8;border:1px solid #f0c97a;border-radius:6px;padding:6px 8px;margin-top:6px}
   .werkwijze ol{margin:4px 0 0;padding-left:20px} .werkwijze li{margin:1px 0}
-  body[data-mode="archiefmail"] .werkwijze{display:none}
+  body[data-mode="archiefmail"] .werkwijze, body[data-mode="archiefmail"] .leesrij{display:none}
   #koppelZoek>summary{cursor:pointer;margin-top:6px} #leerCard>summary{cursor:pointer}
   .snel{display:flex;flex-wrap:wrap;gap:4px 10px;align-items:center;font-size:12px;color:var(--muted)}
   .snel .grp{display:flex;gap:4px;align-items:center;flex-wrap:wrap}
@@ -361,6 +363,7 @@
       <div id="samenvatting" class="muted"></div>
       <div id="todo"></div>
       <div class="voorstel" id="voorstel" aria-live="polite"></div>
+      <div class="leesrij"><button class="btn sm" type="button" id="btnLees">↻ Opnieuw laten lezen</button><span class="tiny" id="leesStatus">De agent leest de mail en de bijlagen opnieuw en doet een nieuw voorstel. Er wordt nog niets opgeslagen.</span></div>
     </div>
 
     <div class="card" id="arcEditCard" hidden>
@@ -1208,13 +1211,16 @@ async function herkenInbox(e){
   const it=Office.context.mailbox.item; const mid=it&&it.internetMessageId; if(!mid&&!DEMO){ msg('Geen Message-ID beschikbaar.','warn'); return; }
   if(!DEMO&&!cfg.archiefherkennen){ msg('Configuratie mist "archiefherkennen".','warn'); return; }
   msg('De agent leest de mail opnieuw, met bijlagen (±20 s)…','warn');
+  const kb=$('btnLees'), ks=$('leesStatus'), kl=$('herkenOpnieuw'); const klaar=(t,ok)=>{ if(kb){ kb.disabled=false; kb.textContent='↻ Opnieuw laten lezen'; } if(ks) ks.textContent=t; if(kl) kl.textContent='opnieuw laten lezen'; };
+  if(kb){ kb.disabled=true; kb.textContent='De agent leest de mail… (±20 s)'; } if(ks) ks.textContent='Even geduld: mail en bijlagen worden gelezen en gekoppeld aan Business Central.'; if(kl) kl.textContent='bezig met lezen…';
   try{ const r=DEMO?await demoApi('archiefherkennen',{}):await api('archiefherkennen',{messageId:mid}); if(!r.item) throw new Error(r.fout||'geen antwoord');
     const nr=r.item; const nieuw=!item; if(nieuw){ item=Object.assign({},nr,{ID:0,Gecontroleerd:false}); }
     fillFromItem(nr); const rl=(val(nr.Route)||'').charAt(0); if(rl){ state.route=rl; state.agentRoute=rl; }
     $('agentzegt').textContent=(val(nr.Route)||'').replace(/^[A-Z] /,'')+' · zekerheid '+(val(nr.Zekerheid)||'?'); if(val(nr.Richting)) $('richting').textContent=val(nr.Richting);
     state.spec=null; state.opdrachtVoorstel=false; renderRoutes(rl||'G'); renderLabels(vals(nr.Labels)); renderVervolg(vals(nr.Vervolgacties)); renderAll(); runLog(nr);
     const d=r.document||{}; msg((nieuw?'Deze mail was nog niet gelezen. De agent heeft hem nu gelezen alsof hij net binnenkwam':'Nieuw voorstel van de agent')+(d.nr?' · document '+d.nr+' ('+(d.soort||'')+')':'')+(d.eigenVerzonden?' · door DFSG verzonden: ter info':'')+'. Controleer en klik op Akkoord (of Alleen opslaan); dan worden de registratie en de labels aangemaakt.','ok');
-  }catch(err){ msg('Opnieuw herkennen mislukt: '+err.message,'err'); }
+    klaar('✓ Opnieuw gelezen. Het voorstel hierboven is bijgewerkt; nog niets opgeslagen.',true); try{ $('voorstel').scrollIntoView({behavior:'smooth',block:'center'}); }catch(x){}
+  }catch(err){ msg('Opnieuw herkennen mislukt: '+err.message,'err'); klaar('Lezen mislukt: '+err.message+'. Probeer het nog eens.',false); }
 }
 async function herken(){
   const m=state.arc; if(!m) return; const b=$('herkenOpnieuw'); b.style.pointerEvents='none'; b.textContent='de agent leest de mail…'; msg('De agent leest deze archiefmail opnieuw, met bijlagen (±20 s)…','warn');
@@ -1327,7 +1333,7 @@ Office.onReady(()=>{
   $('mapGo').onclick=()=>searchMap(false); $('mapPlaats').addEventListener('keydown',e=>{ if(e.key==='Enter') searchMap(false); });
   $('relatie').onchange=()=>{ state.relatie=$('relatie').value; };
   $('btnOk').onclick=()=>state.mode==='archief'?terugNaarArchief():save(true); $('btnSave').onclick=()=>state.mode==='archief'?saveArchief():save(false);
-  $('btnHerken').onclick=herken; $('herkenOpnieuw').onclick=e=>{ e.preventDefault(); if(state.mode==='archief') herken(); else herkenInbox(e); }; $('arcBack').onclick=e=>{ e.preventDefault(); terugNaarArchief(); }; $('webTerug').onclick=e=>{ e.preventDefault(); showWerklijst(); };
+  $('btnHerken').onclick=herken; $('herkenOpnieuw').onclick=e=>{ e.preventDefault(); e.stopPropagation(); if(state.mode==='archief') herken(); else herkenInbox(e); }; $('btnLees').onclick=e=>{ if(state.mode==='archief') herken(); else herkenInbox(e); }; $('arcBack').onclick=e=>{ e.preventDefault(); terugNaarArchief(); }; $('webTerug').onclick=e=>{ e.preventDefault(); showWerklijst(); };
   document.querySelectorAll('.vt').forEach(t=>t.addEventListener('keydown',e=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); t.click(); } }));
   document.querySelectorAll('.vt').forEach(t=>t.onclick=()=>setView(t.dataset.v));
   $('arcGo').onclick=arcSearch; $('arcQ').addEventListener('keydown',e=>{ if(e.key==='Enter') arcSearch(); }); $('arcQ').addEventListener('input',arcTypen); $('arcHelpBtn').onclick=arcHelp; renderSnel(); werkwijzeInit(); $('opdracht').addEventListener('input',conceptBewaar); $('correctie').addEventListener('input',conceptBewaar);
