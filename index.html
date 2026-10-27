@@ -591,8 +591,16 @@ function knopTekst(){ const b=$('btnOk'); if(!b||state.mode==='archiefmail'||!DO
   const ri=routeInfo(state.route), a=(ri&&ri.Actie)||'', lb=actieLabel(state.route,ri,''); let t='✓ Akkoord';
   if(a==='Concept antwoord') t='✓ Akkoord: antwoord laten schrijven'; else if(a==='Concept doorsturen') t='✓ Akkoord: doorsturen naar '+((ri&&ri.Naam)||'collega');
   else if(lb==='Archiveren') t='✓ Akkoord: archiveren'; else if(lb==='Lezen') t='✓ Akkoord: alleen lezen';
+  if(item&&item.Gecontroleerd) t=t.replace('✓ Akkoord','↻ Opnieuw');
   b.textContent=t; }
 /* Zelflerend: past de gebruiker iets aan t.o.v. het voorstel, vraag dan meteen kort waarom */
+/* Wat de gebruiker typt (opdracht, waarom) blijft bewaard per mail tot Akkoord gelukt is */
+function conceptSleutel(){ try{ const it=Office.context.mailbox.item; return it&&it.internetMessageId?'concept:'+it.internetMessageId:''; }catch(e){ return ''; } }
+function conceptBewaar(){ const k=conceptSleutel(); if(!k) return; try{ localStorage.setItem(k,JSON.stringify({opdracht:$('opdracht').value,correctie:$('correctie').value,t:Date.now()})); }catch(e){} }
+function conceptHerstel(){ const k=conceptSleutel(); if(!k) return; try{ const d=JSON.parse(localStorage.getItem(k)||'null'); if(!d) return;
+  if(d.opdracht){ $('opdracht').value=d.opdracht; state.opdrachtVoorstel=true; } if(d.correctie) $('correctie').value=d.correctie;
+  if(d.opdracht||d.correctie) msg('Je eerder ingevulde tekst is teruggezet.','ok'); }catch(e){} }
+function conceptWis(){ const k=conceptSleutel(); if(!k) return; try{ localStorage.removeItem(k); }catch(e){} }
 function afwijkingen(){ if(!item) return [];
   const w=[]; if(state.agentRoute&&state.route&&state.route!==state.agentRoute) w.push('de actie');
   [['obj','het object'],['klant','de klant'],['lev','de leverancier'],['doc','het document']].forEach(([x,n])=>{ if(state.src[x]==='jij') w.push(n); });
@@ -721,8 +729,8 @@ async function load(){
     runLog(item);
     renderRoutes(agentRoute); renderLabels(vals(item.Labels)); renderVervolg(vals(item.Vervolgacties)); renderAll();
     const nk=['Objectnr','Klantnr','Leveranciernr','Documentnr','Projectmap'].filter(f=>item[f]).length;
-    msg(item.Gecontroleerd?'Al afgehandeld. Je kunt nog aanpassen.':'','ok');
-    showMain(); $('btnOk').disabled=!!(item.Gecontroleerd&&DOORZETTEN_ACTIEF); $('btnSave').disabled=false; if(view==='archief') loadArchief(false);
+    msg(item.Gecontroleerd?'Deze mail is al afgehandeld. Wil je de actie opnieuw laten uitvoeren (bijvoorbeeld een nieuw concept met een andere opdracht)? Pas aan en klik op ↻ Opnieuw.':'','ok');
+    showMain(); $('btnOk').disabled=false; $('btnSave').disabled=false; conceptHerstel(); if(view==='archief') loadArchief(false);
     if(state.obj&&state.obj.plaats&&!state.map){ searchMap(true); }
   }catch(e){ msg('Fout: '+e.message,'err'); }
 }
@@ -743,7 +751,9 @@ async function save(akkoord){
     if(akkoord&&$('leerAan')&&$('leerAan').checked&&!DEMO&&cfg.regels){ try{ const it=Office.context.mailbox.item; await api('regels',{actie:'maak',messageId:it.internetMessageId,route:state.route,labels:canon([...state.labels]),instructie:$('leerInstructie').value.trim()}); extra+=' · afspraak vastgelegd'; }catch(e){ extra+=' · afspraak vastleggen mislukt'; } }
     if(akkoord&&DOORZETTEN_ACTIEF){
       msg('✓ Gelukt. '+(routeZinKern(state.route)||'De agent gaat aan de slag.')+' '+(WEB?'Terug naar de werklijst…':'Je kunt de volgende mail openen.'),'ok');
-      bezig=false;
+      conceptWis(); bezig=false;
+      const ri=routeInfo(state.route)||{}; $('btnOk').textContent=/Concept/.test(ri.Actie||'')?'✓ Gelukt: concept staat over ± 1 min in Concepten':'✓ Gelukt'; $('btnOk').disabled=true;
+      try{ $('status').scrollIntoView({behavior:'smooth',block:'start'}); }catch(e){}
       if(WEB){ const titel=state.title; setTimeout(()=>showWerklijst('Afgehandeld: '+titel+' — de agent is ermee bezig.'),1800); }
       return; /* knoppen blijven uit: deze mail is doorgezet */
     }
@@ -1256,7 +1266,7 @@ function demo(){
   msg('','ok');
   item.Gecontroleerd=false; setMode('inkomend',inkomendTekst()); $('btnHerken').onclick=herken; $('arcBack').onclick=e=>{ e.preventDefault(); terugNaarArchief(); };
   $('btnOk').onclick=()=>state.mode==='archief'?terugNaarArchief():msg('Voorbeeldpagina: niets opgeslagen of verplaatst. In Outlook zet Akkoord & doorzetten de mail door (verplaatsen, concepten); Alleen opslaan bewaart je correcties.','warn'); $('btnSave').onclick=()=>state.mode==='archief'?saveArchief():$('btnOk').onclick();
-  document.querySelectorAll('.vt').forEach(t=>t.onclick=()=>setView(t.dataset.v)); $('arcGo').onclick=arcSearch; $('arcQ').addEventListener('keydown',e=>{ if(e.key==='Enter') arcSearch(); }); $('arcQ').addEventListener('input',arcTypen); $('arcHelpBtn').onclick=arcHelp; renderSnel(); werkwijzeInit();
+  document.querySelectorAll('.vt').forEach(t=>t.onclick=()=>setView(t.dataset.v)); $('arcGo').onclick=arcSearch; $('arcQ').addEventListener('keydown',e=>{ if(e.key==='Enter') arcSearch(); }); $('arcQ').addEventListener('input',arcTypen); $('arcHelpBtn').onclick=arcHelp; renderSnel(); werkwijzeInit(); $('opdracht').addEventListener('input',conceptBewaar); $('correctie').addEventListener('input',conceptBewaar);
   if(/[?&]view=archief/.test(location.search)) setTimeout(()=>setView('archief'),50);
   $('main').style.display='grid'; $('bar').style.display='grid';
 }
@@ -1295,7 +1305,7 @@ Office.onReady(()=>{
   $('btnHerken').onclick=herken; $('herkenOpnieuw').onclick=e=>{ e.preventDefault(); if(state.mode==='archief') herken(); else herkenInbox(e); }; $('arcBack').onclick=e=>{ e.preventDefault(); terugNaarArchief(); }; $('webTerug').onclick=e=>{ e.preventDefault(); showWerklijst(); };
   document.querySelectorAll('.vt').forEach(t=>t.addEventListener('keydown',e=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); t.click(); } }));
   document.querySelectorAll('.vt').forEach(t=>t.onclick=()=>setView(t.dataset.v));
-  $('arcGo').onclick=arcSearch; $('arcQ').addEventListener('keydown',e=>{ if(e.key==='Enter') arcSearch(); }); $('arcQ').addEventListener('input',arcTypen); $('arcHelpBtn').onclick=arcHelp; renderSnel(); werkwijzeInit();
+  $('arcGo').onclick=arcSearch; $('arcQ').addEventListener('keydown',e=>{ if(e.key==='Enter') arcSearch(); }); $('arcQ').addEventListener('input',arcTypen); $('arcHelpBtn').onclick=arcHelp; renderSnel(); werkwijzeInit(); $('opdracht').addEventListener('input',conceptBewaar); $('correctie').addEventListener('input',conceptBewaar);
   try{ Office.context.mailbox.addHandlerAsync(Office.EventType.ItemChanged,()=>load()); }catch(e){}
   load();
   const vq=(location.search.match(/[?&]view=(inbox|archief|routes)/)||[])[1]; if(vq==='archief') setTimeout(()=>setView('archief'),300); if(vq==='routes') setTimeout(()=>setView('routes'),300);
