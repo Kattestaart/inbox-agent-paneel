@@ -365,32 +365,32 @@
       </div>
     </div>
 
-    <div class="card" id="routecard">
-      <div class="lbl">Route voor verdere verwerking</div>
-      <div class="chips" id="routes"></div>
-      <div class="tiny" id="routeUitleg"></div>
-    </div>
-
-    <div class="card" id="leerCard">
-      <div class="lbl">Leer de CENTRALE <span class="hint" id="afspraakInfo"></span></div>
-      <label class="switch" style="font-size:13px;align-items:flex-start"><input type="checkbox" id="leerAan" style="margin-top:3px"> <span>Mails zoals deze voortaan zo voorstellen: zelfde afzender, onderwerp en inhoud (cijfers, datums en tijden tellen niet mee).</span></label>
-      <textarea id="leerInstructie" placeholder="Instructie voor de CENTRALE bij dit type mail, bijv. 'Back-up geslaagd: altijd archiveren, geen actie nodig.'"></textarea>
-      <div class="tiny">Vertrouwen groeit vanzelf: na 3× ongewijzigd akkoord mag hij ze bundelen, na 10× (alleen Archief/Lezen) zelfstandig afhandelen. Wijzig je de route, dan begint hij opnieuw. In te zien en aan/uit te zetten bij Routes.</div>
-      <div class="lbl">Waarom (helpt de agent leren)</div>
-      <textarea id="correctie" placeholder="Bijv. 'Kibo is onze accountant' of 'Henk alleen in CC, actie ligt bij Planning' — mag leeg blijven bij akkoord"></textarea>
-    </div>
-
-    <details class="card" id="meer">
-      <summary>Vervolgacties (later: worden routes)</summary>
-      <div class="lbl">Vervolgacties (naast de route)</div>
-      <div class="chips" id="vervolg"></div>
-      <div class="tiny" id="vervolgtoel"></div>
-    </details>
     <div class="card" id="logcard">
       <div class="lbl"><span id="logTitel">Wat ik heb gevonden — controleer onderstaande en geef akkoord</span> <a class="link" href="#" id="herkenOpnieuw" style="font-weight:400">opnieuw herkennen</a> <span class="live" id="bclive" hidden>Verbonden met Business Central</span></div>
       <div class="log" id="log"></div>
     </div>
 
+    <div class="card" id="routecard">
+      <div class="lbl">Actie <span class="hint">wat moet er met deze mail gebeuren</span></div>
+      <div class="chips" id="routes"></div>
+      <div class="tiny" id="routeUitleg"></div>
+    </div>
+
+    <div class="card" id="leerCard">
+      <div class="lbl">Waarom &amp; toelichting <span class="hint">helpt de agent leren</span></div>
+      <textarea id="correctie" placeholder="Bijv. 'Kibo is onze accountant' of 'Henk alleen in CC, actie ligt bij Planning' — mag leeg blijven bij akkoord"></textarea>
+      <div class="lbl">Leer de CENTRALE <span class="hint" id="afspraakInfo"></span></div>
+      <label class="switch" style="font-size:13px;align-items:flex-start"><input type="checkbox" id="leerAan" style="margin-top:3px"> <span>Mails zoals deze voortaan zo voorstellen: zelfde afzender, onderwerp en inhoud (cijfers, datums en tijden tellen niet mee).</span></label>
+      <textarea id="leerInstructie" placeholder="Instructie voor de CENTRALE bij dit type mail, bijv. 'Back-up geslaagd: altijd archiveren, geen actie nodig.'"></textarea>
+      <div class="tiny">Vertrouwen groeit vanzelf: na 3× ongewijzigd akkoord mag hij ze bundelen, na 10× (alleen Archief/Lezen) zelfstandig afhandelen. Wijzig je de route, dan begint hij opnieuw. In te zien en aan/uit te zetten bij Routes.</div>
+    </div>
+
+    <details class="card" id="meer" hidden>
+      <summary>Vervolgacties (later: worden routes)</summary>
+      <div class="lbl">Vervolgacties (naast de route)</div>
+      <div class="chips" id="vervolg"></div>
+      <div class="tiny" id="vervolgtoel"></div>
+    </details>
     <div class="tiny" id="uitlegKnoppen"><b>Alleen opslaan</b> bewaart je correcties (labels/categorieën); de mail houdt de categorie <i>0 · Te controleren</i>. <b>Akkoord &amp; doorzetten</b> start de agents: categorie per route (mail blijft in Postvak IN; alleen Archief/Privé wordt verplaatst) en concepten klaarzetten in Concepten. Er wordt nooit iets verstuurd — dat doe jij. <a class="link" href="#" id="cfgOpen">Instellingen</a></div>
   </div>
 </div>
@@ -437,7 +437,22 @@ const val=x=>(x&&typeof x==='object'&&'Value' in x)?x.Value:(x||'');
 const vals=a=>Array.isArray(a)?a.map(val):[];
 const norm=s=>String(s||'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
 
-function renderRoutes(agent){ const c=$('routes'); c.innerHTML=''; ROUTES.forEach(([k,n])=>{ const ri=(typeof routeInfo==='function')&&routeInfo(k); if(ri&&ri.Actief===false&&state.route!==k) return; c.appendChild(chip((ri&&ri.Naam)||n,state.route===k,'route'+(agent===k?' agent':''),()=>{state.route=k;renderRoutes(agent);renderPreview();})); }); if(typeof toonRouteUitleg==='function') toonRouteUitleg(); }
+/* Alleen routes waar echt een workflow achter zit, als actieknop (Lezen / Beantwoorden / Doorsturen / Archiveren) */
+function actieLabel(k,ri,n){
+  const a=(ri&&ri.Actie)||'', naam=(ri&&ri.Naam)||n;
+  if(a==='Concept antwoord') return 'Beantwoorden (concept)';
+  if(a==='Concept doorsturen') return 'Doorsturen · '+naam;
+  if(String((ri&&ri.Doelmap)||'').toLowerCase()==='archiveren'||k==='A') return 'Archiveren';
+  if(k==='E') return 'Lezen';
+  return '';
+}
+function renderRoutes(agent){ const c=$('routes'); c.innerHTML='';
+  const lijst=(ROUTECFG&&ROUTECFG.length)?ROUTECFG.map(r=>[r.Title,r.Naam]):ROUTES;
+  lijst.forEach(([k,n])=>{ const ri=(typeof routeInfo==='function')&&routeInfo(k); if(ri&&ri.Actief===false) return;
+    const lbl=actieLabel(k,ri,n); if(!lbl) return;
+    c.appendChild(chip(lbl,state.route===k,'route'+(agent===k?' agent':''),()=>{state.route=k;renderRoutes(agent);renderPreview();})); });
+  if(state.route&&!actieLabel(state.route,routeInfo(state.route),'')){ const s=document.createElement('div'); s.className='tiny'; s.textContent='Voorstel agent ('+((routeInfo(state.route)||{}).Naam||state.route)+') is geen actie — kies hierboven wat er moet gebeuren.'; c.appendChild(s); }
+  if(typeof toonRouteUitleg==='function') toonRouteUitleg(); }
 /* Onderwerplabels die al door Object/Klant/Leverancier (koppelingen) gedekt worden: niet als losse categorie tonen */
 const DEKT_KOPPELING=['Object','Leverancier','Klant','Project'];
 /* Zelfde opbouw als Agent-API Opslaan: max. twee categorieën = waar gaat het over (object, anders klant, anders leverancier) + status */
@@ -611,13 +626,14 @@ async function loadRoutes(force){
   return ROUTECFG;
 }
 function routeInfo(k){ return (ROUTECFG||[]).find(x=>x.Title===k); }
-function routeZin(k){
+function routeZin(k){ const z=routeZinKern(k), r=routeInfo(k); return (r&&r.Omschrijving&&r.Omschrijving!=='(voorbeeld)'?'Wanneer: '+r.Omschrijving+' — ':'')+z; }
+function routeZinKern(k){
   const r=routeInfo(k); if(!r) return '';
   const ag=vals(r.Agents);
   if(r.Actief===false) return 'Route staat uit in het control panel: de mail wordt alleen opgeslagen.';
   if(r.Actie==='Concept antwoord') return 'Na doorzetten: de CENTRALE zet een concept-antwoord klaar'+(ag.length?' met '+ag.join(', '):'')+' in Concepten en geeft de mail de categorie ✎ Concept klaar. Jij verstuurt.';
   if(r.Actie==='Concept doorsturen') return 'Na doorzetten: de CENTRALE zet een doorstuurconcept aan '+(r.DoorsturenAan||'-')+' klaar in Concepten en geeft de mail de categorie ✎ Concept klaar. Jij verstuurt.';
-  if(/^TO DO/i.test(r.Doelmap||'')) return 'Na doorzetten: de mail blijft in Postvak IN met de routecategorie ('+k+') en ✓ Gecontroleerd.';
+  if(/^TO DO/i.test(r.Doelmap||'')) return 'Na Akkoord: de mail blijft in Postvak IN; opvolgen doe je met je Outlook-vlag. Klaar? Vinkje (Voltooid) = naar het archief.';
   return 'Na doorzetten: de mail gaat naar '+(r.Doelmap||'-')+'.';
 }
 function toonRouteUitleg(){ const u=$('routeUitleg'); if(u) u.textContent=state.mode==='archief'?(state.route?'In het archief wordt de route vastgelegd als kenmerk (voor zoeken en leren). Er wordt niets verplaatst of verstuurd.':''):(routeZin(state.route)||''); u&&(u.style.display=u.textContent?'':'none'); }
