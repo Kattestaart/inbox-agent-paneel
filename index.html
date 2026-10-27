@@ -433,6 +433,8 @@
       <div id="opdrachtBox" hidden style="margin-top:8px">
         <div class="lbl">Wat moet erin staan? <span class="hint" id="opdrachtHint">de agent schrijft het concept hiermee</span></div>
         <textarea id="opdracht" placeholder="Bijv. 'Factuur staat geboekt, wordt voor de vervaldatum betaald' of 'Planning: storing OBJ… morgen inplannen, klant wil terugbelverzoek'"></textarea>
+        <div id="specBox"><div class="lbl" style="margin-top:6px">Welke specialist(en) helpen? <span class="hint">voorstel van de agent · meerdere mogelijk</span></div>
+        <div class="chips" id="specChips"></div><div class="tiny" id="specUitleg"></div></div>
         <div class="lbl" style="margin-top:6px">Laat de agent opzoeken in Business Central <span class="hint">hij gebruikt alleen wat hij daar vindt</span></div>
         <div class="chips" id="bcChecks"></div>
       </div>
@@ -541,7 +543,27 @@ function renderOpdracht(){ const box=$('opdrachtBox'); if(!box) return; const ri
     if(/financieel/.test(lab)||/factuur|creditnota/.test(ds)){ state.bc.add('posten'); if(state.doc&&state.doc.nr) state.bc.add('factuur'); }
     if(/offerte/.test(lab+' '+ds)) state.bc.add('offerte');
     if(/order/.test(lab+' '+ds)) state.bc.add('order'); }
+  renderSpecialisten(a);
   const c=$('bcChecks'); c.innerHTML=''; if(!state.bc) state.bc=new Set(); BCCHECKS.forEach(([k,l])=>c.appendChild(chip(l,state.bc.has(k),'',()=>{ state.bc.has(k)?state.bc.delete(k):state.bc.add(k); renderOpdracht(); }))); }
+/* Specialisten die meehelpen aan een antwoord: de agent stelt voor op basis van onderwerp en koppelingen, de gebruiker kiest */
+const SPEC_UIT=['ARCHIVARIS-STIJL'];
+function specVoorstel(){ const v=new Set(); const lab=[...(state.labels||[])].join(' ').toLowerCase(); const ond=String(state.title||'').toLowerCase();
+  const namen=(AGENTCAT||[]).filter(a=>a.Actief!==false&&!SPEC_UIT.includes(a.Title)).map(a=>a.Title);
+  const heeft=n=>namen.includes(n);
+  if(/hr\/personeel/.test(lab)&&heeft('PERSONEELSZAKEN')) v.add('PERSONEELSZAKEN');
+  if(/beheer|beheerder/.test(lab+' '+ond)&&heeft('BEHEER')) v.add('BEHEER');
+  if(/norm|inspectie|nen\s?\d/.test(lab+' '+ond)&&heeft('NORMSPECIALIST')) v.add('NORMSPECIALIST');
+  if(state.obj&&state.obj.objectnr&&!v.has('PERSONEELSZAKEN')&&!v.has('BEHEER')){ if(heeft('INSPECTEUR')) v.add('INSPECTEUR'); if(heeft('ZOEKER')) v.add('ZOEKER'); }
+  namen.filter(n=>!['INSPECTEUR','NORMSPECIALIST','ZOEKER','PERSONEELSZAKEN','BEHEER'].includes(n)).forEach(n=>{ if((lab+' '+ond).includes(n.toLowerCase())) v.add(n); });
+  return v; }
+function renderSpecialisten(actie){ const box=$('specBox'); if(!box) return; const toon=actie==='Concept antwoord'; box.hidden=!toon; if(!toon) return;
+  const lijst=(AGENTCAT||[]).filter(a=>a.Actief!==false&&!SPEC_UIT.includes(a.Title));
+  const c=$('specChips'); c.innerHTML='';
+  if(!lijst.length){ c.innerHTML='<span class="tiny">Specialisten ophalen…</span>'; return; }
+  if(!state.spec){ state.spec=specVoorstel(); }
+  lijst.forEach(a=>{ const k=chip(a.Title.charAt(0)+a.Title.slice(1).toLowerCase(),state.spec.has(a.Title),'',()=>{ state.spec.has(a.Title)?state.spec.delete(a.Title):state.spec.add(a.Title); renderSpecialisten(actie); }); k.title=a.Domein||a.Wanneer||''; c.appendChild(k); });
+  const gekozen=lijst.filter(a=>state.spec.has(a.Title));
+  $('specUitleg').textContent=gekozen.length?gekozen.map(a=>a.Title.charAt(0)+a.Title.slice(1).toLowerCase()+': '+(a.Domein||'')).join(' · '):'Geen gekozen: de standaard specialisten van deze actie doen mee.'; }
 function renderRoutes(agent){ const c=$('routes'); c.innerHTML='';
   const lijst=(ROUTECFG&&ROUTECFG.length)?ROUTECFG.map(r=>[r.Title,r.Naam]):ROUTES;
   lijst.forEach(([k,n])=>{ const ri=(typeof routeInfo==='function')&&routeInfo(k); if(ri&&ri.Actief===false) return;
@@ -743,7 +765,7 @@ async function save(akkoord){
   $('btnOk').disabled=true; $('btnSave').disabled=true; msg(akkoord?'Akkoord opslaan…':'Opslaan…','warn');
   const o=state.obj||{}, k=state.klant||{}, l=state.lev||{}, d=state.doc||{}, m=state.map||{};
   try{
-    const r=await api('opslaan',{doorzetten:!!akkoord,itemId:state.itemId||0,messageId:oi?oi.internetMessageId:'',conversatieId:oi?oi.conversationId:'',van:oi&&oi.from?oi.from.emailAddress:'',outlookId:state.outlookId,title:state.title,route:state.route,labels:[...state.labels],objectnr:o.objectnr||'',objectnaam:o.naam||'',adres:o.adres||'',plaats:o.plaats||'',klantnr:k.nr||o.klantnr||'',klantnaam:k.naam||o.klantnaam||'',leveranciernr:l.nr||'',leveranciernaam:l.naam||'',documentnr:d.nr||'',documentsoort:d.soort?(DOCLBL[d.soort]||''):'',projectmap:m.pad||'',projectmapNaam:m.naam||'',relatie:$('relatie').value,correctie:$('correctie').value.trim(),vervolgacties:[...state.vervolg],opdracht:($('opdracht')&&!$('opdrachtBox').hidden)?$('opdracht').value.trim():'',aangepast:akkoord?(item?(afwijkingen().join(', ')||'nee'):'geen voorstel'):'',bcChecks:($('opdrachtBox')&&!$('opdrachtBox').hidden)?[...(state.bc||[])]:[]});
+    const r=await api('opslaan',{doorzetten:!!akkoord,itemId:state.itemId||0,messageId:oi?oi.internetMessageId:'',conversatieId:oi?oi.conversationId:'',van:oi&&oi.from?oi.from.emailAddress:'',outlookId:state.outlookId,title:state.title,route:state.route,labels:[...state.labels],objectnr:o.objectnr||'',objectnaam:o.naam||'',adres:o.adres||'',plaats:o.plaats||'',klantnr:k.nr||o.klantnr||'',klantnaam:k.naam||o.klantnaam||'',leveranciernr:l.nr||'',leveranciernaam:l.naam||'',documentnr:d.nr||'',documentsoort:d.soort?(DOCLBL[d.soort]||''):'',projectmap:m.pad||'',projectmapNaam:m.naam||'',relatie:$('relatie').value,correctie:$('correctie').value.trim(),vervolgacties:[...state.vervolg],opdracht:($('opdracht')&&!$('opdrachtBox').hidden)?$('opdracht').value.trim():'',aangepast:akkoord?(item?(afwijkingen().join(', ')||'nee'):'geen voorstel'):'',bcChecks:($('opdrachtBox')&&!$('opdrachtBox').hidden)?[...(state.bc||[])]:[],specialisten:($('specBox')&&!$('specBox').hidden&&!$('opdrachtBox').hidden)?[...(state.spec||[])]:[]});
     let extra='';
     if(!DEMO&&cfg.archiefwijzigen){ try{ const it=Office.context.mailbox.item; const a=await api('archiefwijzigen',Object.assign(koppelBody(),{messageId:it.internetMessageId,bron:akkoord?'Inkomend (akkoord)':'Inkomend'})); if(a.gevonden&&a.ok) extra=' · ook in archief bijgewerkt'; }catch(e){} }
     if(r.ok===false||r.fout){ msg('Opgeslagen in de lijst, maar Outlook is NIET bijgewerkt: '+(r.fout||'onbekende fout')+'. Probeer opnieuw.','err'); } else msg((DOORZETTEN_ACTIEF?(akkoord?'Doorgezet':'Correcties opgeslagen (nog niet doorgezet)'):(akkoord?'Akkoord vastgelegd':'Opgeslagen'))+' · in Outlook staat nu: '+((r.outlookNu||r.categorieen||[]).join(', ')||'(geen categorie)')+' — ziet Outlook er anders uit, dan loopt de weergave even achter (F9 of even wachten).'+(r.verplaatst==='Succeeded'?' · mail verplaatst':'')+extra,'ok');
@@ -764,7 +786,7 @@ async function save(akkoord){
 let ROUTECFG=null, AGENTCAT=[];
 async function loadRoutes(force){
   if(ROUTECFG&&!force) return ROUTECFG;
-  if(DEMO){ ROUTECFG=ROUTES.map(([k,n],i)=>({ID:i+1,Title:k,Naam:n,Actie:k==='C'?'Concept antwoord':(k==='B'?'Concept doorsturen':'Alleen verplaatsen'),Agents:k==='C'?['INSPECTEUR','NORMSPECIALIST','ZOEKER','PERSONEELSZAKEN']:[],Doelmap:k==='A'?'Archiveren':'TO DO',Conceptmap:(k==='B'||k==='C')?'TO DO 1 Beantwoorden':'',DoorsturenAan:k==='B'?'administratie@dfsg.nl':'',Instructies:'(voorbeeld)',Omschrijving:'(voorbeeld)',Actief:true})); AGENTCAT=['INSPECTEUR','NORMSPECIALIST','ZOEKER','PERSONEELSZAKEN'].map((t,i)=>({ID:i+1,Title:t,Spelregels:'(voorbeeld)',Wanneer:'',Actief:true})); return ROUTECFG; }
+  if(DEMO){ ROUTECFG=ROUTES.map(([k,n],i)=>({ID:i+1,Title:k,Naam:n,Actie:k==='C'?'Concept antwoord':(k==='B'?'Concept doorsturen':'Alleen verplaatsen'),Agents:k==='C'?['INSPECTEUR','NORMSPECIALIST','ZOEKER','PERSONEELSZAKEN']:[],Doelmap:k==='A'?'Archiveren':'TO DO',Conceptmap:(k==='B'||k==='C')?'TO DO 1 Beantwoorden':'',DoorsturenAan:k==='B'?'administratie@dfsg.nl':'',Instructies:'(voorbeeld)',Omschrijving:'(voorbeeld)',Actief:true})); AGENTCAT=['INSPECTEUR','NORMSPECIALIST','ZOEKER','PERSONEELSZAKEN','BEHEER'].map((t,i)=>({ID:i+1,Title:t,Spelregels:'(voorbeeld)',Wanneer:'',Domein:['PvE en UPD uit de projectmap','normen en regelgeving','zoekt in de projectmap','personeelsgids','e-learning beheerder en jaarcontract beheer'][i],Actief:true})); return ROUTECFG; }
   if(!cfg||!cfg.routes) return null;
   try{ const r=await api('routes',{actie:'lijst'}); ROUTECFG=r.routes||[]; AGENTCAT=r.agents||[]; }catch(e){ ROUTECFG=null; }
   return ROUTECFG;
