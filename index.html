@@ -316,32 +316,22 @@
       <div class="tiny">Werkt precies als de Inbox: zelfde kaarten, zelfde CENTRALE. Er verandert pas iets als jij op <b>Opslaan in archief</b> klikt. Er wordt niets verplaatst of verstuurd.</div>
     </div>
 
-    <div class="card" id="logcard">
-      <div class="lbl"><span id="logTitel">Wat ik heb gevonden — controleer onderstaande en geef akkoord</span> <a class="link" href="#" id="herkenOpnieuw" style="font-weight:400">opnieuw herkennen</a> <span class="live" id="bclive" hidden>Verbonden met Business Central</span></div>
-      <div class="log" id="log"></div>
-    </div>
-
-    <div class="card" id="routecard">
-      <div class="lbl">Route voor verdere verwerking</div>
-      <div class="chips" id="routes"></div>
-      <div class="tiny" id="routeUitleg"></div>
-    </div>
-
-    <div class="card" id="leerCard">
-      <div class="lbl">Leer de CENTRALE <span class="hint" id="afspraakInfo"></span></div>
-      <label class="switch" style="font-size:13px;align-items:flex-start"><input type="checkbox" id="leerAan" style="margin-top:3px"> <span>Mails zoals deze voortaan zo voorstellen: zelfde afzender, onderwerp en inhoud (cijfers, datums en tijden tellen niet mee).</span></label>
-      <textarea id="leerInstructie" placeholder="Instructie voor de CENTRALE bij dit type mail, bijv. 'Back-up geslaagd: altijd archiveren, geen actie nodig.'"></textarea>
-      <div class="tiny">Vertrouwen groeit vanzelf: na 3× ongewijzigd akkoord mag hij ze bundelen, na 10× (alleen Archief/Lezen) zelfstandig afhandelen. Wijzig je de route, dan begint hij opnieuw. In te zien en aan/uit te zetten bij Routes.</div>
-    </div>
-
-    <div class="card">
-      <div class="lbl">Labels · waar gaat het over</div>
+    <div class="card" id="labelCard">
+      <div class="lbl">Labels in Outlook <span class="hint">zo komen ze op de mail · volgorde object, klant, leverancier, onderwerp</span></div>
+      <div class="chips" id="olPreview"></div>
+      <div class="lbl" style="margin-top:8px">Onderwerp · waar gaat het over</div>
       <div class="chips" id="labels"></div>
+      <div class="tiny">Object, klant en leverancier kies je hieronder bij Koppelingen (altijd met nummer en naam uit Business Central).</div>
     </div>
 
     <div class="card">
       <div class="lbl">Koppelingen <span class="hint">BC &amp; SharePoint</span></div>
       <div class="klist" id="koppel"></div>
+      <div class="lbl" style="margin-top:6px">Relatie afzender / externe partij</div>
+      <select id="relatie">
+        <option>Klant</option><option>Leverancier</option><option>Intern</option><option>Medewerker</option>
+        <option>Partner/Adviseur</option><option>Overheid/Instantie</option><option>Privé</option><option>Systeem</option><option>Onbekend</option>
+      </select>
       <div class="tabs">
         <div class="tab on" data-t="obj">Object</div><div class="tab" data-t="klant">Klant</div><div class="tab" data-t="lev">Leverancier</div><div class="tab" data-t="doc">Document</div><div class="tab" data-t="map">Projectmap</div>
       </div>
@@ -375,19 +365,32 @@
       </div>
     </div>
 
+    <div class="card" id="routecard">
+      <div class="lbl">Route voor verdere verwerking</div>
+      <div class="chips" id="routes"></div>
+      <div class="tiny" id="routeUitleg"></div>
+    </div>
+
+    <div class="card" id="leerCard">
+      <div class="lbl">Leer de CENTRALE <span class="hint" id="afspraakInfo"></span></div>
+      <label class="switch" style="font-size:13px;align-items:flex-start"><input type="checkbox" id="leerAan" style="margin-top:3px"> <span>Mails zoals deze voortaan zo voorstellen: zelfde afzender, onderwerp en inhoud (cijfers, datums en tijden tellen niet mee).</span></label>
+      <textarea id="leerInstructie" placeholder="Instructie voor de CENTRALE bij dit type mail, bijv. 'Back-up geslaagd: altijd archiveren, geen actie nodig.'"></textarea>
+      <div class="tiny">Vertrouwen groeit vanzelf: na 3× ongewijzigd akkoord mag hij ze bundelen, na 10× (alleen Archief/Lezen) zelfstandig afhandelen. Wijzig je de route, dan begint hij opnieuw. In te zien en aan/uit te zetten bij Routes.</div>
+      <div class="lbl">Waarom (helpt de agent leren)</div>
+      <textarea id="correctie" placeholder="Bijv. 'Kibo is onze accountant' of 'Henk alleen in CC, actie ligt bij Planning' — mag leeg blijven bij akkoord"></textarea>
+    </div>
+
     <details class="card" id="meer">
-      <summary>Meer · relatie, vervolgacties, waarom</summary>
-      <div class="lbl">Relatie afzender / externe partij</div>
-      <select id="relatie">
-        <option>Klant</option><option>Leverancier</option><option>Intern</option><option>Medewerker</option>
-        <option>Partner/Adviseur</option><option>Overheid/Instantie</option><option>Privé</option><option>Systeem</option><option>Onbekend</option>
-      </select>
+      <summary>Vervolgacties (later: worden routes)</summary>
       <div class="lbl">Vervolgacties (naast de route)</div>
       <div class="chips" id="vervolg"></div>
       <div class="tiny" id="vervolgtoel"></div>
-      <div class="lbl">Waarom (helpt de agent leren)</div>
-      <textarea id="correctie" placeholder="Bijv. 'Henk alleen in CC, actie ligt bij Planning' — mag leeg blijven bij akkoord"></textarea>
     </details>
+    <div class="card" id="logcard">
+      <div class="lbl"><span id="logTitel">Wat ik heb gevonden — controleer onderstaande en geef akkoord</span> <a class="link" href="#" id="herkenOpnieuw" style="font-weight:400">opnieuw herkennen</a> <span class="live" id="bclive" hidden>Verbonden met Business Central</span></div>
+      <div class="log" id="log"></div>
+    </div>
+
     <div class="tiny" id="uitlegKnoppen"><b>Alleen opslaan</b> bewaart je correcties (labels/categorieën); de mail houdt de categorie <i>0 · Te controleren</i>. <b>Akkoord &amp; doorzetten</b> start de agents: categorie per route (mail blijft in Postvak IN; alleen Archief/Privé wordt verplaatst) en concepten klaarzetten in Concepten. Er wordt nooit iets verstuurd — dat doe jij. <a class="link" href="#" id="cfgOpen">Instellingen</a></div>
   </div>
 </div>
@@ -435,7 +438,20 @@ const vals=a=>Array.isArray(a)?a.map(val):[];
 const norm=s=>String(s||'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
 
 function renderRoutes(agent){ const c=$('routes'); c.innerHTML=''; ROUTES.forEach(([k,n])=>{ const ri=(typeof routeInfo==='function')&&routeInfo(k); if(ri&&ri.Actief===false&&state.route!==k) return; c.appendChild(chip((ri&&ri.Naam)||n,state.route===k,'route'+(agent===k?' agent':''),()=>{state.route=k;renderRoutes(agent);})); }); if(typeof toonRouteUitleg==='function') toonRouteUitleg(); }
-function renderLabels(agent){ const c=$('labels'); c.innerHTML=''; const show=LABELS.filter(l=>showAllLabels||state.labels.has(l)||(agent||[]).includes(l)); show.forEach(l=>c.appendChild(chip(l,state.labels.has(l),(agent||[]).includes(l)?'agent':'',()=>{ state.labels.has(l)?state.labels.delete(l):state.labels.add(l); renderLabels(agent); }))); c.appendChild(chip(showAllLabels?'minder':'+ label',false,'more',()=>{ showAllLabels=!showAllLabels; renderLabels(agent); })); if(showAllLabels) c.appendChild(newLabelChip(n=>{ if(n) state.labels.add(n); renderLabels(agent); })); }
+/* Onderwerplabels die al door Object/Klant/Leverancier (koppelingen) gedekt worden: niet als losse categorie tonen */
+const DEKT_KOPPELING=['Object','Leverancier','Klant','Project'];
+/* Zelfde opbouw als Agent-API Opslaan / CENTRALE: 1 Object · 2 Klant · 3 Leverancier · 4 onderwerp + status */
+function outlookCategorieen(akkoord){
+  const o=state.obj||{}, k=state.klant||{}, l=state.lev||{}, out=[];
+  if(o.objectnr) out.push('1 Object · '+o.objectnr+(o.naam?' · '+o.naam:''));
+  if(k.naam&&String(k.naam).trim().toLowerCase()!==String(o.naam||'').trim().toLowerCase()) out.push('2 Klant · '+(k.nr?k.nr+' · ':'')+k.naam);
+  if(l.naam) out.push('3 Leverancier · '+(l.nr?l.nr+' · ':'')+l.naam);
+  [...state.labels].filter(x=>x&&!DEKT_KOPPELING.includes(x)).forEach(x=>out.push('4 · '+x));
+  out.push(akkoord?'✓ Gecontroleerd':'0 · Te controleren');
+  return out;
+}
+function renderPreview(){ const c=$('olPreview'); if(!c) return; c.innerHTML=''; outlookCategorieen(false).forEach(x=>{ const s=document.createElement('span'); s.className='chip'+(/^0 ·/.test(x)?' agent':' on'); s.style.cursor='default'; s.textContent=x; c.appendChild(s); }); }
+function renderLabels(agent){ renderPreview(); const c=$('labels'); c.innerHTML=''; const show=LABELS.filter(l=>!DEKT_KOPPELING.includes(l)).filter(l=>showAllLabels||state.labels.has(l)||(agent||[]).includes(l)); show.forEach(l=>c.appendChild(chip(l,state.labels.has(l),(agent||[]).includes(l)?'agent':'',()=>{ state.labels.has(l)?state.labels.delete(l):state.labels.add(l); renderLabels(agent); }))); c.appendChild(chip(showAllLabels?'minder':'+ label',false,'more',()=>{ showAllLabels=!showAllLabels; renderLabels(agent); })); if(showAllLabels) c.appendChild(newLabelChip(n=>{ if(n) state.labels.add(n); renderLabels(agent); })); }
 function renderKoppel(){
   const c=$('koppel'); c.innerHTML='';
   const SP='https://mmhbrandbeveiliging.sharepoint.com';
@@ -466,7 +482,7 @@ function renderAll(){
   renderSel('docCur',state.doc,state.doc?'<b>'+esc(DOCLBL[state.doc.soort]||state.doc.soort)+' '+esc(state.doc.nr)+'</b> '+esc(state.doc.naam||'')+'<br><span class="tiny">'+esc(state.doc.extra||'')+'</span>':'',()=>{state.doc=null;renderAll();});
   renderSel('mapCur',state.map,state.map?'<b>Projectmap</b> '+esc(state.map.naam)+'<br><a class="link tiny" target="_blank" href="'+esc(state.map.url)+'">openen</a>':'',()=>{state.map=null;renderAll();});
   if(state.obj&&state.obj.plaats&&!$('mapPlaats').value) $('mapPlaats').value=state.obj.plaats;
-  renderKoppel(); loadObjectDocs(false);
+  renderKoppel(); loadObjectDocs(false); renderPreview();
 }
 function resList(id,list,render,onPick,bestIdx){ const res=$(id); res.innerHTML=''; if(!list.length){res.innerHTML='<span class="tiny">Niets gevonden.</span>';return;} list.forEach((o,i)=>{ const b=document.createElement('button'); if(i===bestIdx) b.className='best'; b.innerHTML=render(o); b.onclick=()=>{onPick(o);res.innerHTML='';}; res.appendChild(b); }); }
 async function searchObj(){ const q=$('objQ').value.trim(); if(q.length<2) return; $('objRes').innerHTML='<span class="tiny">Zoeken…</span>'; try{ const list=await api('objecten',{q}); resList('objRes',list,o=>'<b>'+esc(o.objectnr)+'</b> '+esc(o.naam||'')+'<br><span class="tiny">'+esc([o.adres,o.plaats].filter(Boolean).join(', '))+(o.klantnaam?' · '+esc(o.klantnaam):'')+'</span>',o=>{ state.obj=o; state.src.obj='jij'; state.labels.add('Object'); if(o.klantnr&&!state.klant){ state.klant={nr:o.klantnr,naam:o.klantnaam,extra:'via object'}; } if(o.klantnr){ state.relatie='Klant'; $('relatie').value='Klant'; } $('mapPlaats').value=o.plaats||''; renderAll(); renderLabels(item&&vals(item.Labels)); $('objQ').value=''; if(o.plaats) searchMap(true); }); }catch(e){ $('objRes').innerHTML='<span class="msg err">'+esc(e.message)+'</span>'; } }
