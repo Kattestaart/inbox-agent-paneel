@@ -317,7 +317,7 @@
     </div>
 
     <div class="card" id="labelCard">
-      <div class="lbl">Zo komt het op de mail in Outlook <span class="hint">max. twee categorieën + vlag</span></div>
+      <div class="lbl">Zo komt het op de mail in Outlook <span class="hint">max. twee categorieën · opvolgen doe je met de Outlook-vlag</span></div>
       <div class="chips" id="olPreview"></div>
       <div class="tiny">Categorie = het object (anders klant, anders leverancier, anders het onderwerp) en zolang nodig de status. Klant, leverancier en onderwerp worden niet als categorie gezet, maar wel vastgelegd en meegenomen naar het archief.</div>
       <div class="lbl" style="margin-top:8px">Onderwerp · waar gaat het over <span class="hint">vastgelegd, geen categorie</span></div>
@@ -363,13 +363,6 @@
         <div class="row"><input type="text" id="mapPlaats" placeholder="Plaats (map Algemeen/<Plaats>)"><button class="btn sm" id="mapGo">Mappen</button></div>
         <div class="res" id="mapRes"></div>
       </div>
-    </div>
-
-    <div class="card" id="actieCard">
-      <div class="lbl">Actie <span class="hint">vlag op de mail + afspraak in jouw agenda (niemand uitgenodigd)</span></div>
-      <input type="text" id="actieTekst" placeholder="Wat moet er gebeuren? bijv. 'Noodplan afgeven bij Lemaro'">
-      <div class="row"><input type="datetime-local" id="actieDatum"><select id="actieDuur"><option value="15">15 min</option><option value="30" selected>30 min</option><option value="60">1 uur</option><option value="120">2 uur</option></select></div>
-      <div class="tiny">Leeg laten = geen afspraak. Markeer de mail als <b>Voltooid</b> (vinkje bij de vlag) als hij klaar is: dan gaat hij vanzelf naar het archief.</div>
     </div>
 
     <div class="card" id="routecard">
@@ -461,9 +454,6 @@ function renderPreview(){ const c=$('olPreview'); if(!c) return; c.innerHTML='';
   const w=watCategorie(); w?add(w,'on'):add('kies een object, klant, leverancier of onderwerp','');
   add('0 · Te controleren → weg na Akkoord','agent');
   if(item&&item.ConceptGemaakt) add('✎ Concept klaar','on');
-  const r=(state.route||'').charAt(0), ad=$('actieDatum')&&$('actieDatum').value;
-  if(ad) add('🚩 vlag op '+new Date(ad).toLocaleString('nl-NL',{dateStyle:'short',timeStyle:'short'})+' + afspraak in agenda','on');
-  else if(['B','C','D'].includes(r)) add('🚩 vlag na Akkoord','on');
 }
 function renderLabels(agent){ renderPreview(); const c=$('labels'); c.innerHTML=''; const show=LABELS.filter(l=>!DEKT_KOPPELING.includes(l)).filter(l=>showAllLabels||state.labels.has(l)||(agent||[]).includes(l)); show.forEach(l=>c.appendChild(chip(l,state.labels.has(l),(agent||[]).includes(l)?'agent':'',()=>{ state.labels.has(l)?state.labels.delete(l):state.labels.add(l); renderLabels(agent); }))); c.appendChild(chip(showAllLabels?'minder':'+ label',false,'more',()=>{ showAllLabels=!showAllLabels; renderLabels(agent); })); if(showAllLabels) c.appendChild(newLabelChip(n=>{ if(n) state.labels.add(n); renderLabels(agent); })); }
 function renderKoppel(){
@@ -564,7 +554,6 @@ function fillFromItem(it2){
 }
 async function load(){
   $('main').style.display='none'; $('bar').style.display='none'; arc.key='';
-  $('actieTekst').value=''; $('actieDatum').value=''; $('actieDatum').onchange=renderPreview;
   if(!loadCfg()){ $('setup').style.display='grid'; setMode('inkomend','Eenmalige instelling nodig'); msg('Eerst de API-configuratie instellen: plak de regel die je van Henk kreeg en klik Opslaan.','warn'); return; }
   $('setup').style.display='none'; loadLabels(); loadRoutes().then(()=>{ try{ if(state.route) renderRoutes(item&&(val(item.Route)||'G').charAt(0)); }catch(e){} });
   const it=Office.context.mailbox.item; if(!it){ if(WEB){ showWerklijst(); return; } msg('Selecteer een mail.','warn'); return; }
@@ -597,7 +586,7 @@ async function save(akkoord){
   $('btnOk').disabled=true; $('btnSave').disabled=true; msg(akkoord?'Akkoord opslaan…':'Opslaan…','warn');
   const o=state.obj||{}, k=state.klant||{}, l=state.lev||{}, d=state.doc||{}, m=state.map||{};
   try{
-    const r=await api('opslaan',{doorzetten:!!akkoord,itemId:state.itemId||0,messageId:oi?oi.internetMessageId:'',conversatieId:oi?oi.conversationId:'',van:oi&&oi.from?oi.from.emailAddress:'',outlookId:state.outlookId,title:state.title,route:state.route,labels:[...state.labels],objectnr:o.objectnr||'',objectnaam:o.naam||'',adres:o.adres||'',plaats:o.plaats||'',klantnr:k.nr||o.klantnr||'',klantnaam:k.naam||o.klantnaam||'',leveranciernr:l.nr||'',leveranciernaam:l.naam||'',documentnr:d.nr||'',documentsoort:d.soort?(DOCLBL[d.soort]||''):'',projectmap:m.pad||'',projectmapNaam:m.naam||'',relatie:$('relatie').value,correctie:$('correctie').value.trim(),vervolgacties:[...state.vervolg],actie:$('actieDatum').value?{tekst:$('actieTekst').value.trim(),datum:$('actieDatum').value.length===16?$('actieDatum').value+':00':$('actieDatum').value,duur:+$('actieDuur').value}:null});
+    const r=await api('opslaan',{doorzetten:!!akkoord,itemId:state.itemId||0,messageId:oi?oi.internetMessageId:'',conversatieId:oi?oi.conversationId:'',van:oi&&oi.from?oi.from.emailAddress:'',outlookId:state.outlookId,title:state.title,route:state.route,labels:[...state.labels],objectnr:o.objectnr||'',objectnaam:o.naam||'',adres:o.adres||'',plaats:o.plaats||'',klantnr:k.nr||o.klantnr||'',klantnaam:k.naam||o.klantnaam||'',leveranciernr:l.nr||'',leveranciernaam:l.naam||'',documentnr:d.nr||'',documentsoort:d.soort?(DOCLBL[d.soort]||''):'',projectmap:m.pad||'',projectmapNaam:m.naam||'',relatie:$('relatie').value,correctie:$('correctie').value.trim(),vervolgacties:[...state.vervolg]});
     let extra='';
     if(!DEMO&&cfg.archiefwijzigen){ try{ const it=Office.context.mailbox.item; const a=await api('archiefwijzigen',Object.assign(koppelBody(),{messageId:it.internetMessageId,bron:akkoord?'Inkomend (akkoord)':'Inkomend'})); if(a.gevonden&&a.ok) extra=' · ook in archief bijgewerkt'; }catch(e){} }
     if(r.ok===false||r.fout){ msg('Opgeslagen in de lijst, maar Outlook is NIET bijgewerkt: '+(r.fout||'onbekende fout')+'. Probeer opnieuw.','err'); } else msg((DOORZETTEN_ACTIEF?(akkoord?'Doorgezet':'Correcties opgeslagen (nog niet doorgezet)'):(akkoord?'Akkoord vastgelegd':'Opgeslagen'))+' · in Outlook staat nu: '+((r.outlookNu||r.categorieen||[]).join(', ')||'(geen categorie)')+' — ziet Outlook er anders uit, dan loopt de weergave even achter (F9 of even wachten).'+(r.verplaatst==='Succeeded'?' · mail verplaatst':'')+extra,'ok');
@@ -940,7 +929,7 @@ function openArchiefMail(m){
   fillFromItem(it2); const doorAgent=/^CENTRALE|^BC|^Inbox Agent/.test(String(m.koppelbron||'')); ['obj','klant','lev','doc','map'].forEach(k=>state.src[k]=doorAgent?'agent':'jij');
   $('subject').textContent=m.onderwerp||'(geen onderwerp)'; $('from').textContent=(m.van||'')+(m.datum?' · '+fmtD(m.datum):'');
   $('agentzegt').textContent='gearchiveerd'+(m.koppelbron?' · '+m.koppelbron:''); $('richting').textContent=val(m.richting)||'–';
-  $('correctie').value=''; $('actieTekst').value=''; $('actieDatum').value=''; $('mapPlaats').value=m.plaats||''; state.route=String(m.route||'').charAt(0); $('leerAan').checked=false; $('leerInstructie').value=''; $('afspraakInfo').innerHTML=''; runLog(it2);
+  $('correctie').value=''; $('mapPlaats').value=m.plaats||''; state.route=String(m.route||'').charAt(0); $('leerAan').checked=false; $('leerInstructie').value=''; $('afspraakInfo').innerHTML=''; runLog(it2);
   ['objRes','klantRes','levRes','docRes','mapRes'].forEach(i=>$(i).innerHTML='');
   $('arcPdf').href=m.pdf||'#'; $('arcPdf').style.display=m.pdf?'':'none'; $('arcOutlook').href=m.outlook||'#'; $('arcOutlook').style.display=m.outlook?'':'none';
   renderRoutes(state.route); renderLabels([]); renderVervolg([]); renderAll();
