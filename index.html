@@ -246,6 +246,7 @@
   .lz-leeg{padding:24px;color:var(--f-text2);font-size:14px}
   @media (max-width:1000px){ body.web.lees{grid-template-columns:1fr} body.web.lees #lezer{position:static;height:70vh} body.web.lees .bar{width:100%} }
   table.ov{border-collapse:collapse;font-size:12px;min-width:640px;width:100%} table.ov th,table.ov td{border:1px solid var(--f-stroke);padding:6px 8px;text-align:left;vertical-align:top} table.ov th{background:#fafafa;font-weight:600}
+.stap{font-weight:600;font-size:13px;margin:6px 2px -2px;display:flex;align-items:center;gap:6px}.stap .nr{display:inline-flex;width:20px;height:20px;border-radius:50%;background:var(--accent,#b3262d);color:#fff;font-size:12px;align-items:center;justify-content:center}.stap .hint{font-weight:400}
 </style>
 </head>
 <body>
@@ -316,6 +317,7 @@
       <div class="tiny">Werkt precies als de Inbox: zelfde kaarten, zelfde CENTRALE. Er verandert pas iets als jij op <b>Opslaan in archief</b> klikt. Er wordt niets verplaatst of verstuurd.</div>
     </div>
 
+    <div class="stap"><span class="nr">1</span> Waar gaat het over? <span class="hint">label in Outlook · koppelingen bepalen het label</span></div>
     <div class="card" id="labelCard">
       <div class="lbl">Zo komt het op de mail in Outlook <span class="hint">max. twee categorieën · opvolgen doe je met de Outlook-vlag</span></div>
       <div class="chips" id="olPreview"></div>
@@ -325,7 +327,7 @@
     </div>
 
     <div class="card">
-      <div class="lbl">Koppelingen <span class="hint">BC &amp; SharePoint</span></div>
+      <div class="lbl">Koppelingen <span class="hint">object, klant of leverancier bepaalt het label · BC &amp; SharePoint</span></div>
       <div class="klist" id="koppel"></div>
       <div class="lbl" style="margin-top:6px">Relatie afzender / externe partij</div>
       <select id="relatie">
@@ -365,22 +367,24 @@
       </div>
     </div>
 
-    <div class="card" id="logcard">
-      <div class="lbl"><span id="logTitel">Wat ik heb gevonden — controleer onderstaande en geef akkoord</span> <a class="link" href="#" id="herkenOpnieuw" style="font-weight:400">opnieuw herkennen</a> <span class="live" id="bclive" hidden>Verbonden met Business Central</span></div>
-      <div class="log" id="log"></div>
+    <div class="stap"><span class="nr">2</span> Context <span class="hint">leer de agent wat belangrijk is</span></div>
+    <div class="card" id="leerCard">
+      <div class="lbl">Waarom &amp; toelichting <span class="hint">wat moet de agent hiervan onthouden</span></div>
+      <textarea id="correctie" placeholder="Bijv. 'Kibo is onze accountant' of 'Henk alleen in CC, actie ligt bij Planning' — mag leeg blijven bij akkoord"></textarea>
+      <div class="tiny">Waarom &amp; toelichting is een <i>hint</i> voor de agent bij volgende mails van deze afzender of uit dit gesprek.</div>
     </div>
 
+    <details class="card" id="logcard">
+      <summary class="lbl"><span id="logTitel">Wat ik heb gevonden — controleer onderstaande en geef akkoord</span> <a class="link" href="#" id="herkenOpnieuw" style="font-weight:400">opnieuw herkennen</a> <span class="live" id="bclive" hidden>Verbonden met Business Central</span></summary>
+      <div class="log" id="log"></div>
+    </details>
+
+    <div class="stap"><span class="nr">3</span> Actie <span class="hint">wat moet er met deze mail gebeuren</span></div>
     <div class="card" id="routecard">
       <div class="lbl">Actie <span class="hint">wat moet er met deze mail gebeuren</span></div>
       <div class="chips" id="routes"></div>
       <div class="tiny" id="routeUitleg"></div>
-    </div>
-
-    <div class="card" id="leerCard">
-      <div class="lbl">Waarom &amp; toelichting <span class="hint">helpt de agent leren</span></div>
-      <textarea id="correctie" placeholder="Bijv. 'Kibo is onze accountant' of 'Henk alleen in CC, actie ligt bij Planning' — mag leeg blijven bij akkoord"></textarea>
-      <div class="tiny">Waarom &amp; toelichting is een <i>hint</i> voor de agent bij volgende mails van deze afzender of uit dit gesprek.</div>
-      <div class="lbl" style="margin-top:10px">Vaste afspraak voor dit soort mail <span class="hint" id="afspraakInfo"></span></div>
+      <div class="lbl" style="margin-top:12px;border-top:1px solid var(--f-stroke);padding-top:10px">Vaste afspraak voor dit soort mail <span class="hint" id="afspraakInfo"></span></div>
       <label class="switch" style="font-size:13px;align-items:flex-start"><input type="checkbox" id="leerAan" style="margin-top:3px"> <span>Mails van <b>deze afzender</b> met <b>dit onderwerp</b> (cijfers en datums tellen niet mee) voortaan <b>altijd zo</b> afhandelen: dezelfde actie en labels.</span></label>
       <div class="tiny" id="afspraakToets"></div>
       <textarea id="leerInstructie" placeholder="Wanneer geldt deze afspraak? Bijv. 'Back-up van de server met [Success] in het onderwerp: altijd archiveren, geen actie nodig.'"></textarea>
