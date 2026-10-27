@@ -383,6 +383,12 @@
     <div class="card" id="routecard">
       <div class="chips" id="routes"></div>
       <div class="tiny" id="routeUitleg"></div>
+      <div id="opdrachtBox" hidden style="margin-top:8px">
+        <div class="lbl">Opdracht / kernpunten <span class="hint" id="opdrachtHint">leidend voor het concept</span></div>
+        <textarea id="opdracht" placeholder="Bijv. 'Factuur staat geboekt, wordt voor de vervaldatum betaald' of 'Planning: storing OBJ… morgen inplannen, klant wil terugbelverzoek'"></textarea>
+        <div class="lbl" style="margin-top:6px">Zoek in Business Central <span class="hint">de agent gebruikt alleen wat hij daar vindt</span></div>
+        <div class="chips" id="bcChecks"></div>
+      </div>
       <div class="lbl" style="margin-top:12px;border-top:1px solid var(--f-stroke);padding-top:10px">Vaste afspraak voor dit soort mail <span class="hint" id="afspraakInfo"></span></div>
       <label class="switch" style="font-size:13px;align-items:flex-start"><input type="checkbox" id="leerAan" style="margin-top:3px"> <span>Mails van <b>deze afzender</b> met <b>dit onderwerp</b> (cijfers en datums tellen niet mee) voortaan <b>altijd zo</b> afhandelen: dezelfde actie en labels.</span></label>
       <div class="tiny" id="afspraakToets"></div>
@@ -465,13 +471,19 @@ function actieLabel(k,ri,n){
   if(k==='E') return 'Lezen';
   return '';
 }
+/* Bij Beantwoorden/Doorsturen: opdracht van Henk + welke BC-gegevens de agent moet opzoeken */
+const BCCHECKS=[['posten','Openstaande posten'],['factuur','Factuur'],['offerte','Offerte'],['order','Order']];
+function renderOpdracht(){ const box=$('opdrachtBox'); if(!box) return; const ri=routeInfo(state.route)||{}; const a=ri.Actie||'';
+  const toon=a==='Concept antwoord'||a==='Concept doorsturen'; box.hidden=!toon; if(!toon) return;
+  $('opdrachtHint').textContent=a==='Concept doorsturen'?'wat moet de collega doen? komt bovenaan de doorstuurmail':'wat wil je antwoorden? leidend voor het concept';
+  const c=$('bcChecks'); c.innerHTML=''; if(!state.bc) state.bc=new Set(); BCCHECKS.forEach(([k,l])=>c.appendChild(chip(l,state.bc.has(k),'',()=>{ state.bc.has(k)?state.bc.delete(k):state.bc.add(k); renderOpdracht(); }))); }
 function renderRoutes(agent){ const c=$('routes'); c.innerHTML='';
   const lijst=(ROUTECFG&&ROUTECFG.length)?ROUTECFG.map(r=>[r.Title,r.Naam]):ROUTES;
   lijst.forEach(([k,n])=>{ const ri=(typeof routeInfo==='function')&&routeInfo(k); if(ri&&ri.Actief===false) return;
     const lbl=actieLabel(k,ri,n); if(!lbl) return;
     c.appendChild(chip(lbl,state.route===k,'route'+(agent===k?' agent':''),()=>{state.route=k;renderRoutes(agent);renderPreview();})); });
   if(state.route&&!actieLabel(state.route,routeInfo(state.route),'')){ const s=document.createElement('div'); s.className='tiny'; s.textContent='Voorstel agent ('+((routeInfo(state.route)||{}).Naam||state.route)+') is geen actie — kies hierboven wat er moet gebeuren.'; c.appendChild(s); }
-  if(typeof toonRouteUitleg==='function') toonRouteUitleg(); }
+  if(typeof toonRouteUitleg==='function') toonRouteUitleg(); renderOpdracht(); }
 /* Onderwerplabels die al door Object/Klant/Leverancier (koppelingen) gedekt worden: niet als losse categorie tonen */
 const DEKT_KOPPELING=['Object','Leverancier','Klant','Project'];
 /* Zelfde opbouw als Agent-API Opslaan: max. twee categorieën = waar gaat het over (object, anders klant, anders leverancier) + status */
@@ -587,7 +599,7 @@ function fillFromItem(it2){
   $('samenvatting').textContent=it2.Samenvatting||''; $('todo').innerHTML=it2.WatMoetIkDoen?('<b>Te doen:</b> '+esc(it2.WatMoetIkDoen)):''; state.todoTekst=it2.WatMoetIkDoen||''; $('vervolgtoel').textContent=(it2.VervolgToelichting||'').replace(/\n/g,' · ');
 }
 async function load(){
-  $('main').style.display='none'; $('bar').style.display='none'; arc.key=''; $('leerAan').onchange=toetsAfspraak; if($('afspraakToets')) $('afspraakToets').innerHTML='';
+  $('main').style.display='none'; $('bar').style.display='none'; arc.key=''; $('leerAan').onchange=toetsAfspraak; if($('opdracht')) $('opdracht').value=''; if(state) state.bc=new Set(); if($('afspraakToets')) $('afspraakToets').innerHTML='';
   if(!loadCfg()){ $('setup').style.display='grid'; setMode('inkomend','Eenmalige instelling nodig'); msg('Eerst de API-configuratie instellen: plak de regel die je van Henk kreeg en klik Opslaan.','warn'); return; }
   $('setup').style.display='none'; loadLabels(); loadRoutes().then(()=>{ try{ if(state.route) renderRoutes(item&&(val(item.Route)||'G').charAt(0)); }catch(e){} });
   const it=Office.context.mailbox.item; if(!it){ if(WEB){ showWerklijst(); return; } msg('Selecteer een mail.','warn'); return; }
@@ -620,7 +632,7 @@ async function save(akkoord){
   $('btnOk').disabled=true; $('btnSave').disabled=true; msg(akkoord?'Akkoord opslaan…':'Opslaan…','warn');
   const o=state.obj||{}, k=state.klant||{}, l=state.lev||{}, d=state.doc||{}, m=state.map||{};
   try{
-    const r=await api('opslaan',{doorzetten:!!akkoord,itemId:state.itemId||0,messageId:oi?oi.internetMessageId:'',conversatieId:oi?oi.conversationId:'',van:oi&&oi.from?oi.from.emailAddress:'',outlookId:state.outlookId,title:state.title,route:state.route,labels:[...state.labels],objectnr:o.objectnr||'',objectnaam:o.naam||'',adres:o.adres||'',plaats:o.plaats||'',klantnr:k.nr||o.klantnr||'',klantnaam:k.naam||o.klantnaam||'',leveranciernr:l.nr||'',leveranciernaam:l.naam||'',documentnr:d.nr||'',documentsoort:d.soort?(DOCLBL[d.soort]||''):'',projectmap:m.pad||'',projectmapNaam:m.naam||'',relatie:$('relatie').value,correctie:$('correctie').value.trim(),vervolgacties:[...state.vervolg]});
+    const r=await api('opslaan',{doorzetten:!!akkoord,itemId:state.itemId||0,messageId:oi?oi.internetMessageId:'',conversatieId:oi?oi.conversationId:'',van:oi&&oi.from?oi.from.emailAddress:'',outlookId:state.outlookId,title:state.title,route:state.route,labels:[...state.labels],objectnr:o.objectnr||'',objectnaam:o.naam||'',adres:o.adres||'',plaats:o.plaats||'',klantnr:k.nr||o.klantnr||'',klantnaam:k.naam||o.klantnaam||'',leveranciernr:l.nr||'',leveranciernaam:l.naam||'',documentnr:d.nr||'',documentsoort:d.soort?(DOCLBL[d.soort]||''):'',projectmap:m.pad||'',projectmapNaam:m.naam||'',relatie:$('relatie').value,correctie:$('correctie').value.trim(),vervolgacties:[...state.vervolg],opdracht:($('opdracht')&&!$('opdrachtBox').hidden)?$('opdracht').value.trim():'',bcChecks:($('opdrachtBox')&&!$('opdrachtBox').hidden)?[...(state.bc||[])]:[]});
     let extra='';
     if(!DEMO&&cfg.archiefwijzigen){ try{ const it=Office.context.mailbox.item; const a=await api('archiefwijzigen',Object.assign(koppelBody(),{messageId:it.internetMessageId,bron:akkoord?'Inkomend (akkoord)':'Inkomend'})); if(a.gevonden&&a.ok) extra=' · ook in archief bijgewerkt'; }catch(e){} }
     if(r.ok===false||r.fout){ msg('Opgeslagen in de lijst, maar Outlook is NIET bijgewerkt: '+(r.fout||'onbekende fout')+'. Probeer opnieuw.','err'); } else msg((DOORZETTEN_ACTIEF?(akkoord?'Doorgezet':'Correcties opgeslagen (nog niet doorgezet)'):(akkoord?'Akkoord vastgelegd':'Opgeslagen'))+' · in Outlook staat nu: '+((r.outlookNu||r.categorieen||[]).join(', ')||'(geen categorie)')+' — ziet Outlook er anders uit, dan loopt de weergave even achter (F9 of even wachten).'+(r.verplaatst==='Succeeded'?' · mail verplaatst':'')+extra,'ok');
