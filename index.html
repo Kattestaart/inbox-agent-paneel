@@ -351,7 +351,7 @@
   <div id="main" style="display:none;gap:10px" class="wrap">
     <div class="werkwijze" id="werkwijze">
       <b>Zo werkt het</b>
-      <ol><li><b>Klopt het?</b> Kijk of de agent de mail goed heeft herkend.</li><li><b>Wat moet ermee?</b> Kies één actie.</li><li><b>Akkoord</b>, dan doet de agent de rest. Versturen doe je altijd zelf.</li></ol>
+      <ol><li><b>Klopt het?</b> Kijk of de agent de labels, de koppeling met BC en de projectmap goed heeft.</li><li><b>Pas aan</b> wat niet klopt en zeg eventueel waarom.</li><li><b>Opslaan</b>: de mail krijgt de juiste categorie en de agent leert ervan. Er wordt niets verplaatst of verstuurd.</li></ol>
       <button class="btn sm" id="werkwijzeWeg" type="button">Begrepen</button>
     </div>
     <div class="card">
@@ -447,7 +447,7 @@
     <div class="tiny" id="uitlegKnoppen"><b>Akkoord</b>: de agent voert de gekozen actie uit. Bij beantwoorden of doorsturen staat daarna een concept klaar in je map Concepten. <b>Er wordt nooit iets verstuurd, dat doe je altijd zelf.</b> <b>Alleen opslaan</b>: je verbeteringen worden bewaard en de mail blijft op "te controleren" staan. <a class="link" href="#" id="werkwijzeToon">Uitleg</a> · <a class="link" href="#" id="cfgOpen">Instellingen</a></div>
 
     <details class="card" id="leerCard">
-      <summary class="lbl">Leer de agent <span class="hint">optioneel · wordt slimmer van jouw uitleg</span></summary>
+      <summary class="lbl">Waarom? <span class="hint">optioneel · de agent leert van jouw uitleg</span></summary>
       <div class="leerhint" id="leerHint" hidden></div>
       <div class="lbl" style="margin-top:6px">Waarom? <span class="hint">wat moet de agent onthouden</span></div>
       <textarea id="correctie" placeholder="Bijv. 'Kibo is onze accountant' of 'Ik sta alleen in CC, de actie ligt bij Planning'"></textarea>
@@ -472,6 +472,14 @@
   <button class="btn save" id="btnSave">Opslaan</button>
 </div>
 
+<style>
+  /* eenvoudige stand (20-11-2026): alleen herkennen corrigeren */
+  .eenvoudig #routecard,.eenvoudig #uitlegKnoppen,.eenvoudig #btnOk,.eenvoudig #meer,.eenvoudig #voorstel,
+  .eenvoudig .stap:has(.nr),.eenvoudig .vt[data-v="routes"],.eenvoudig #leerCard .switch,.eenvoudig #afspraakToets,
+  .eenvoudig #leerInstructie,.eenvoudig #leerCard > .tiny,.eenvoudig #leerCard .lbl:has(#afspraakInfo){display:none!important}
+  .eenvoudig #bar{grid-template-columns:1fr}
+  .eenvoudig #btnSave{background:var(--ok);color:#fff;border-color:var(--ok)}
+</style>
 <script>
 const ROUTES=[['A','Archief'],['B','Administratie'],['C','Antwoord'],['D','Besluit'],['E','Lezen'],['F','Privé'],['G','Twijfel']];
 let showAllLabels=false;
@@ -489,7 +497,11 @@ state=blank();
 function loadCfg(){ try{ const s=Office.context.roamingSettings.get('inboxAgentCfg'); if(s) cfg=JSON.parse(s); }catch(e){} if(!cfg){ try{ const s=localStorage.getItem('inboxAgentCfg'); if(s) cfg=JSON.parse(s);}catch(e){} } return !!(cfg&&cfg.beslissing&&cfg.objecten&&cfg.opslaan); }
 function saveCfg(obj){ cfg=obj; try{ Office.context.roamingSettings.set('inboxAgentCfg',JSON.stringify(obj)); Office.context.roamingSettings.saveAsync(()=>{}); }catch(e){} try{ localStorage.setItem('inboxAgentCfg',JSON.stringify(obj)); }catch(e){} }
 let DEMO=false; let WEB=false;
-const DOORZETTEN_ACTIEF=true; /* aan zetten zodra Agent-API Opslaan de doorzetten-vlag kent */
+/* Besluit Henk 20-11-2026: eenvoudige stand. Het paneel corrigeert alleen labels, BC-koppeling en projectmap;
+   geen routes, geen Akkoord & doorzetten, geen afspraken. Opslaan stuurt altijd doorzetten:false. */
+const EENVOUDIG=true;
+const DOORZETTEN_ACTIEF=!EENVOUDIG;
+if(EENVOUDIG) document.documentElement.classList.add('eenvoudig');
 function demoApi(name,body){ const base=[
   {id:357,datum:'2026-10-14T19:47:59Z',van:'henk.kattestaart@dfsg.nl',onderwerp:'RE: Projectofferte 20250129 – Student Experience Amstelveen 2025',objectnr:'OBJ001180',objectnaam:'Student Experience Amstelveen 2025',labels:['Object','Offerte'],richting:'Verzonden',messageId:'<m1>',conversatieId:'c1',outlook:'#',pdf:'#'},
   {id:346,datum:'2026-10-14T11:19:06Z',van:'ruud@blom-installatie.nl',onderwerp:'RE: Ringerskwartier – meterkasten detectie',objectnr:'',objectnaam:'',labels:['Techniek/Product'],richting:'Ingekomen',messageId:'<m0>',conversatieId:'c1',outlook:'#',pdf:'#'},
@@ -588,7 +600,7 @@ function watCategorie(){
 function renderPreview(){ const c=$('olPreview'); if(!c) return; c.innerHTML='';
   const add=(t,cls)=>{ const s=document.createElement('span'); s.className='chip '+(cls||''); s.style.cursor='default'; s.textContent=t; c.appendChild(s); };
   const w=watCategorie(); w?add(w,'on'):add('kies een object, klant, leverancier of onderwerp','');
-  add('0 · Te controleren → weg na Akkoord','agent');
+  if(!EENVOUDIG) add('0 · Te controleren → weg na Akkoord','agent');
   if(item&&item.ConceptGemaakt) add('✎ Concept klaar','on');
 }
 function renderLabels(agent){ renderPreview(); renderVoorstel(); const c=$('labels'); c.innerHTML=''; const show=LABELS.filter(l=>!DEKT_KOPPELING.includes(l)).filter(l=>showAllLabels||state.labels.has(l)||(agent||[]).includes(l)); show.forEach(l=>c.appendChild(chip(l,state.labels.has(l),(agent||[]).includes(l)?'agent':'',()=>{ state.labels.has(l)?state.labels.delete(l):state.labels.add(l); renderLabels(agent); }))); c.appendChild(chip(showAllLabels?'minder':'+ label',false,'more',()=>{ showAllLabels=!showAllLabels; renderLabels(agent); })); if(showAllLabels) c.appendChild(newLabelChip(n=>{ if(n) state.labels.add(n); renderLabels(agent); })); }
@@ -723,7 +735,7 @@ function setMode(mode,tekst){
   if(!am&&state&&state.route) knopTekst();
 }
 function uitlegKnoppen(){ const u=$('uitlegKnoppen'); if(u&&!DOORZETTEN_ACTIEF) u.innerHTML='<b>Akkoord</b>: de agent voert de gekozen actie uit. <b>Er wordt nooit iets verstuurd, dat doe je altijd zelf.</b>'; }
-function inkomendTekst(){ if(!item) return 'Nog niet door de agent gelezen (oudere mail) — klik "opnieuw herkennen" of bekijk het archief.'; return item.Gecontroleerd?'✓ Door jou doorgezet. Je kunt nog aanpassen.':'Wacht op jouw antwoord'; }
+function inkomendTekst(){ if(!item) return 'Nog niet door de agent gelezen (oudere mail) — klik "opnieuw herkennen" of bekijk het archief.'; if(EENVOUDIG) return item.Gecontroleerd?'✓ Door jou gecontroleerd. Je kunt nog aanpassen.':'Door de agent herkend. Klopt iets niet? Pas het aan en sla op.'; return item.Gecontroleerd?'✓ Door jou doorgezet. Je kunt nog aanpassen.':'Wacht op jouw antwoord'; }
 function fillFromItem(it2){
   state.labels=new Set(vals(it2.Labels)); state.vervolg=new Set(vals(it2.Vervolgacties)); state.relatie=val(it2.Relatie)||'Onbekend'; $('relatie').value=state.relatie;
   state.obj=it2.Objectnr?{objectnr:it2.Objectnr,naam:it2.Objectnaam,adres:it2.Adres,plaats:it2.Plaats,postcode:it2.Postcode,klantnr:it2.Klantnr,klantnaam:it2.Klantnaam}:null;
