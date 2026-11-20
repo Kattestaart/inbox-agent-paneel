@@ -5,7 +5,7 @@
   xmlns:mailappor="http://schemas.microsoft.com/office/mailappversionoverrides/1.0"
   xsi:type="MailApp">
   <Id>7f3e2b1a-6c4d-4e8f-9a0b-1c2d3e4f5a6b</Id>
-  <Version>1.1.0.0</Version>
+  <Version>1.2.0.0</Version>
   <ProviderName>Dutch Fire Safety Group</ProviderName>
   <DefaultLocale>nl-NL</DefaultLocale>
   <DisplayName DefaultValue="DFSG Inbox Agent"/>
@@ -38,7 +38,79 @@
   </Rule>
   <DisableEntityHighlighting>false</DisableEntityHighlighting>
 
+  <!-- V1_0 is de terugvaloptie en moet zelf compleet zijn (Hosts + Resources); V1_1 erin voegt vastzetten toe. -->
   <VersionOverrides xmlns="http://schemas.microsoft.com/office/mailappversionoverrides" xsi:type="VersionOverridesV1_0">
+    <Requirements>
+      <bt:Sets DefaultMinVersion="1.5">
+        <bt:Set Name="Mailbox"/>
+      </bt:Sets>
+    </Requirements>
+    <Hosts>
+      <Host xsi:type="MailHost">
+        <DesktopFormFactor>
+          <FunctionFile resid="Taskpane.Url"/>
+          <ExtensionPoint xsi:type="MessageReadCommandSurface">
+            <OfficeTab id="TabDefault">
+              <Group id="msgReadGroup">
+                <Label resid="GroupLabel"/>
+                <Control xsi:type="Button" id="msgReadOpenPaneButton">
+                  <Label resid="TaskpaneButton.Label"/>
+                  <Supertip>
+                    <Title resid="TaskpaneButton.Label"/>
+                    <Description resid="TaskpaneButton.Tooltip"/>
+                  </Supertip>
+                  <Icon>
+                    <bt:Image size="16" resid="Icon.16x16"/>
+                    <bt:Image size="32" resid="Icon.32x32"/>
+                    <bt:Image size="80" resid="Icon.80x80"/>
+                  </Icon>
+                  <Action xsi:type="ShowTaskpane">
+                    <SourceLocation resid="Taskpane.Url"/>
+                  </Action>
+                </Control>
+                <Control xsi:type="Button" id="msgReadZoekButton">
+                  <Label resid="ZoekButton.Label"/>
+                  <Supertip>
+                    <Title resid="ZoekButton.Label"/>
+                    <Description resid="ZoekButton.Tooltip"/>
+                  </Supertip>
+                  <Icon>
+                    <bt:Image size="16" resid="Icon.16x16"/>
+                    <bt:Image size="32" resid="Icon.32x32"/>
+                    <bt:Image size="80" resid="Icon.80x80"/>
+                  </Icon>
+                  <Action xsi:type="ShowTaskpane">
+                    <TaskpaneId>ArchiefZoeker</TaskpaneId>
+                    <SourceLocation resid="Zoeker.Url"/>
+                  </Action>
+                </Control>
+              </Group>
+            </OfficeTab>
+          </ExtensionPoint>
+        </DesktopFormFactor>
+      </Host>
+    </Hosts>
+    <Resources>
+      <bt:Images>
+        <bt:Image id="Icon.16x16" DefaultValue="https://kattestaart.github.io/inbox-agent-paneel/assets/icon-16.png"/>
+        <bt:Image id="Icon.32x32" DefaultValue="https://kattestaart.github.io/inbox-agent-paneel/assets/icon-32.png"/>
+        <bt:Image id="Icon.80x80" DefaultValue="https://kattestaart.github.io/inbox-agent-paneel/assets/icon-80.png"/>
+      </bt:Images>
+      <bt:Urls>
+        <bt:Url id="Taskpane.Url" DefaultValue="https://kattestaart.github.io/inbox-agent-paneel/index.html"/>
+          <bt:Url id="Zoeker.Url" DefaultValue="https://kattestaart.github.io/inbox-agent-paneel/zoeken/index.html"/>
+      </bt:Urls>
+      <bt:ShortStrings>
+        <bt:String id="GroupLabel" DefaultValue="DFSG"/>
+        <bt:String id="TaskpaneButton.Label" DefaultValue="Inbox Agent"/>
+          <bt:String id="ZoekButton.Label" DefaultValue="Archief zoeken"/>
+      </bt:ShortStrings>
+      <bt:LongStrings>
+        <bt:String id="TaskpaneButton.Tooltip" DefaultValue="Herkenner: toont wat de agent in deze mail heeft gevonden (labels, BC-koppeling, projectmap). Wijzig of keur goed."/>
+          <bt:String id="ZoekButton.Tooltip" DefaultValue="Zoek snel in het mailarchief op SharePoint: kernwoorden, datum, in/uit, object, klant, leverancier, afzender."/>
+      </bt:LongStrings>
+    </Resources>
+
     <VersionOverrides xmlns="http://schemas.microsoft.com/office/mailappversionoverrides/1.1" xsi:type="VersionOverridesV1_1">
       <Requirements>
         <bt:Sets DefaultMinVersion="1.5">
@@ -66,6 +138,23 @@
                     </Icon>
                     <Action xsi:type="ShowTaskpane">
                       <SourceLocation resid="Taskpane.Url"/>
+                      <SupportsPinning>true</SupportsPinning>
+                    </Action>
+                  </Control>
+                  <Control xsi:type="Button" id="msgReadZoekButton">
+                    <Label resid="ZoekButton.Label"/>
+                    <Supertip>
+                      <Title resid="ZoekButton.Label"/>
+                      <Description resid="ZoekButton.Tooltip"/>
+                    </Supertip>
+                    <Icon>
+                      <bt:Image size="16" resid="Icon.16x16"/>
+                      <bt:Image size="32" resid="Icon.32x32"/>
+                      <bt:Image size="80" resid="Icon.80x80"/>
+                    </Icon>
+                    <Action xsi:type="ShowTaskpane">
+                      <TaskpaneId>ArchiefZoeker</TaskpaneId>
+                      <SourceLocation resid="Zoeker.Url"/>
                       <SupportsPinning>true</SupportsPinning>
                     </Action>
                   </Control>
@@ -108,16 +197,18 @@
         </bt:Images>
         <bt:Urls>
           <bt:Url id="Taskpane.Url" DefaultValue="https://kattestaart.github.io/inbox-agent-paneel/index.html"/>
+          <bt:Url id="Zoeker.Url" DefaultValue="https://kattestaart.github.io/inbox-agent-paneel/zoeken/index.html"/>
         </bt:Urls>
         <bt:ShortStrings>
           <bt:String id="GroupLabel" DefaultValue="DFSG"/>
           <bt:String id="TaskpaneButton.Label" DefaultValue="Inbox Agent"/>
+          <bt:String id="ZoekButton.Label" DefaultValue="Archief zoeken"/>
         </bt:ShortStrings>
         <bt:LongStrings>
-          <bt:String id="TaskpaneButton.Tooltip" DefaultValue="Opent het DFSG-zijpaneel: Inbox (controleren en doorzetten) en Archief (zoeken en corrigeren). Vastzetten met de punaise houdt het paneel open."/>
+          <bt:String id="TaskpaneButton.Tooltip" DefaultValue="Herkenner: toont wat de agent in deze mail heeft gevonden (labels, BC-koppeling, projectmap). Wijzig of keur goed."/>
+          <bt:String id="ZoekButton.Tooltip" DefaultValue="Zoek snel in het mailarchief op SharePoint: kernwoorden, datum, in/uit, object, klant, leverancier, afzender."/>
         </bt:LongStrings>
       </Resources>
-      <SupportsSharedFolders>true</SupportsSharedFolders>
     </VersionOverrides>
   </VersionOverrides>
 </OfficeApp>

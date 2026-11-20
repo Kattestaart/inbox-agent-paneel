@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Mailarchief zoeken</title>
+<script src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script>
 <style>
 :root{--bg:#f5f5f4;--card:#fff;--ink:#1f1f1f;--muted:#6b6b6b;--line:#e3e1de;--accent:#c8102e;--accent-ink:#fff;--soft:#fbeaec;--ok:#1d7a46;--warn:#9a6700;--sel:#fff6f7}
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#161616;--card:#202020;--ink:#ececec;--muted:#a3a3a3;--line:#343434;--accent:#ff4d64;--accent-ink:#1a1a1a;--soft:#3a1d22;--ok:#5fd394;--warn:#e6b44c;--sel:#2a1d20}}
@@ -23,6 +24,8 @@ button:hover,.btn:hover{border-color:var(--muted)}
 .primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:600}
 .filters{max-width:1400px;margin:10px auto 0;display:flex;flex-direction:column;gap:8px}
 .frij{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.ftoggle{display:none}
+@media (max-width:560px){ .ftoggle{display:inline-flex} body:not(.fopen) .filters{display:none} .zoek .primary{padding:8px 10px} .kz input,#fVan{width:140px!important} }
 .fl{font-size:12.5px;color:var(--muted);display:inline-flex;align-items:center;gap:4px}
 .fl input,.fs{font:inherit;font-size:13px;padding:5px 8px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink)}
 .kz{position:relative;display:inline-block}
@@ -96,6 +99,7 @@ iframe{width:100%;height:480px;border:1px solid var(--line);border-radius:8px;ba
     <form class="zoek" id="zoekform" autocomplete="off">
       <input id="q" type="search" placeholder="Kernwoorden, bv. inspectierapport Ringerskwartier (of OBJ-nummer, e-mailadres)" aria-label="Zoeken in het mailarchief">
       <button class="primary" type="submit">Zoeken</button>
+      <button type="button" id="fToggle" class="ftoggle" aria-expanded="false">Filters</button>
     </form>
   </div>
   <div class="filters" id="filters"></div>
@@ -127,7 +131,10 @@ let cfg=null;
 const st={items:[],q:'',sel:null,volgende:100,meer:false,nr:0,pv:{},periode:'30',vanaf:'',tot:'',eigen:false,richting:'',diep:false,label:'',obj:null,klant:null,lev:null,van:''};
 
 /* ---------- configuratie (gedeeld met het Inbox-paneel: zelfde website, zelfde browseropslag) ---------- */
-function laadCfg(){ try{ const s=localStorage.getItem('inboxAgentCfg'); if(s) cfg=JSON.parse(s); }catch(e){} return !!(cfg&&cfg.archiefzoeken); }
+/* In Outlook staat de configuratie in de roaming settings van de invoegtoepassing (gezet door het Inbox-paneel), in de browser in localStorage. */
+function laadCfg(){ try{ const s=Office.context.roamingSettings.get('inboxAgentCfg'); if(s) cfg=typeof s==='string'?JSON.parse(s):s; }catch(e){}
+  if(!cfg){ try{ const s=localStorage.getItem('inboxAgentCfg'); if(s) cfg=JSON.parse(s); }catch(e){} } return !!(cfg&&cfg.archiefzoeken); }
+function bewaarCfg(o){ try{ localStorage.setItem('inboxAgentCfg',JSON.stringify(o)); }catch(e){} try{ Office.context.roamingSettings.set('inboxAgentCfg',JSON.stringify(o)); Office.context.roamingSettings.saveAsync(()=>{}); }catch(e){} }
 async function api(naam,body){
   if(DEMO) return demoApi(naam,body);
   if(!cfg||!cfg[naam]) throw new Error('De koppeling "'+naam+'" ontbreekt in de instellingen.');
@@ -365,16 +372,19 @@ function demoApi(naam,body){
 async function start(){
   if(DEMO) $('demobalk').hidden=false;
   if(!DEMO&&!laadCfg()){ $('cfg').hidden=false;
-    $('cfgOk').onclick=()=>{ try{ const o=JSON.parse($('cfgTxt').value); if(!o.archiefzoeken) throw new Error('"archiefzoeken" ontbreekt'); localStorage.setItem('inboxAgentCfg',JSON.stringify(o)); location.reload(); }catch(e){ $('cfgMsg').textContent='Niet gelukt: '+e.message; } };
+    $('cfgOk').onclick=()=>{ try{ const o=JSON.parse($('cfgTxt').value); if(!o.archiefzoeken) throw new Error('"archiefzoeken" ontbreekt'); bewaarCfg(o); setTimeout(()=>location.reload(),600); }catch(e){ $('cfgMsg').textContent='Niet gelukt: '+e.message; } };
     return; }
   $('app').hidden=false;
   try{ const r=await api('labels',{}); const l=(r&&(r.labels||r.value||r))||[]; if(Array.isArray(l)&&l.length) LABELS=l.map(val).filter(x=>x&&!/^(Project|Klant)$/.test(x)); }catch(e){}
   zetPeriode('30'); renderFilters();
+  $('fToggle').onclick=()=>{ const o=document.body.classList.toggle('fopen'); $('fToggle').setAttribute('aria-expanded',o); };
   $('zoekform').onsubmit=e=>{ e.preventDefault(); zoek(); };
   const q=new URLSearchParams(location.search).get('q'); if(q) $('q').value=q;
   zoek(); $('q').focus();
 }
-start();
+/* Start na Office.onReady als de pagina in Outlook draait; in de browser direct (Office.js meldt dan geen host). */
+(function(){ let gestart=false; const go=()=>{ if(!gestart){ gestart=true; start(); } };
+  try{ if(window.Office&&Office.onReady){ Office.onReady(go); setTimeout(go,2500); return; } }catch(e){} go(); })();
 </script>
 </body>
 </html>
