@@ -21,7 +21,16 @@ h1 span{color:var(--accent)}
 button,.btn{font:inherit;cursor:pointer;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:8px;padding:8px 12px;text-decoration:none;display:inline-flex;align-items:center;gap:6px}
 button:hover,.btn:hover{border-color:var(--muted)}
 .primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:600}
-.filters{display:flex;flex-wrap:wrap;gap:6px;max-width:1400px;margin:10px auto 0;align-items:center}
+.filters{max-width:1400px;margin:10px auto 0;display:flex;flex-direction:column;gap:8px}
+.frij{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.fl{font-size:12.5px;color:var(--muted);display:inline-flex;align-items:center;gap:4px}
+.fl input,.fs{font:inherit;font-size:13px;padding:5px 8px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink)}
+.kz{position:relative;display:inline-block}
+.kz input{width:150px}
+.chip.kz a{margin-left:4px;cursor:pointer;font-weight:700}
+.kzres{position:absolute;left:0;top:100%;z-index:20;min-width:280px;max-height:320px;overflow:auto;background:var(--card);border:1px solid var(--line);border-radius:8px;box-shadow:0 6px 20px rgba(0,0,0,.12)}
+.kzres:empty{display:none}
+.kzres button{display:block;width:100%;text-align:left;border:0;border-bottom:1px solid var(--line);border-radius:0;font-size:13px;padding:6px 10px}
 .chip{border:1px solid var(--line);border-radius:999px;padding:4px 10px;font-size:12.5px;background:var(--card);cursor:pointer;color:var(--ink)}
 .chip.on{background:var(--soft);border-color:var(--accent);color:var(--accent)}
 .sep{width:1px;height:18px;background:var(--line);margin:0 4px}
@@ -38,7 +47,8 @@ main{max-width:1400px;margin:0 auto;display:grid;grid-template-columns:minmax(32
 .kaart .r3{font-size:12.5px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .lb{display:inline-block;font-size:11px;border-radius:4px;padding:1px 6px;margin:4px 4px 0 0;background:var(--bg);border:1px solid var(--line)}
 .lb.Object{border-color:var(--accent);color:var(--accent)}
-#detail{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px;min-width:0;align-self:start;position:sticky;top:120px;max-height:calc(100vh - 136px);overflow:auto}
+#detail{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px;min-width:0;align-self:start;position:sticky;top:16px;max-height:calc(100vh - 32px);overflow:auto}
+header{position:static}
 #detail .leeg{color:var(--muted);text-align:center;padding:60px 10px}
 .d-ond{font-size:18px;font-weight:600;margin:0 0 4px}
 .d-sub{color:var(--muted);font-size:13px;margin-bottom:12px}
@@ -84,7 +94,7 @@ iframe{width:100%;height:480px;border:1px solid var(--line);border-radius:8px;ba
   <div class="top">
     <h1>Mail<span>archief</span> zoeken</h1>
     <form class="zoek" id="zoekform" autocomplete="off">
-      <input id="q" type="search" placeholder="Zoek op woord, OBJ-nummer, e-mailadres, datum (bv. 1-11-2026..20-11-2026)" aria-label="Zoeken in het mailarchief">
+      <input id="q" type="search" placeholder="Kernwoorden, bv. inspectierapport Ringerskwartier (of OBJ-nummer, e-mailadres)" aria-label="Zoeken in het mailarchief">
       <button class="primary" type="submit">Zoeken</button>
     </form>
   </div>
@@ -114,7 +124,7 @@ const vals=a=>Array.isArray(a)?a.map(val):(a?String(a).split(/[;,]\s*/).filter(B
 const DEMO=/[?&]demo=1/.test(location.search);
 let LABELS=['Object','Service/Support','Techniek/Product','Offerte','Order/Inkoop','Financieel','HR/Personeel','Pilotsafe','Systeem/Melding','Privé','Juridisch/Contract','Leverancier','Planning','Nieuwsbrief/Info','Overig'];
 let cfg=null;
-const st={items:[],q:'',sel:null,volgende:100,meer:false,nr:0,pv:{},periode:'30',richting:'',diep:false,label:''};
+const st={items:[],q:'',sel:null,volgende:100,meer:false,nr:0,pv:{},periode:'30',vanaf:'',tot:'',eigen:false,richting:'',diep:false,label:'',obj:null,klant:null,lev:null,van:''};
 
 /* ---------- configuratie (gedeeld met het Inbox-paneel: zelfde website, zelfde browseropslag) ---------- */
 function laadCfg(){ try{ const s=localStorage.getItem('inboxAgentCfg'); if(s) cfg=JSON.parse(s); }catch(e){} return !!(cfg&&cfg.archiefzoeken); }
@@ -127,20 +137,48 @@ async function api(naam,body){
 }
 
 /* ---------- filters ---------- */
-const PERIODES=[['7','7 dagen'],['30','30 dagen'],['365','Dit jaar'],['','Altijd']];
+const PERIODES=[['7','7 dagen'],['30','30 dagen'],['90','3 maanden'],['365','12 maanden'],['','Altijd']];
+const isoDag=n=>{ const d=new Date(); d.setDate(d.getDate()-n); return d.toISOString().slice(0,10); };
+function zetPeriode(k){ st.periode=k; st.vanaf=k?isoDag(+k):''; st.tot=''; }
 function renderFilters(){
   const f=$('filters'); f.innerHTML='';
-  const chip=(t,on,fn,titel)=>{ const b=document.createElement('button'); b.type='button'; b.className='chip'+(on?' on':''); b.textContent=t; if(titel) b.title=titel; b.onclick=()=>{ fn(); renderFilters(); zoek(); }; f.appendChild(b); };
-  PERIODES.forEach(([k,t])=>chip(t,st.periode===k,()=>st.periode=k));
-  f.insertAdjacentHTML('beforeend','<span class="sep"></span>');
-  [['','In + uit'],['Ingekomen','Ontvangen'],['Verzonden','Verzonden']].forEach(([k,t])=>chip(t,st.richting===k,()=>st.richting=k));
-  f.insertAdjacentHTML('beforeend','<span class="sep"></span>');
-  chip('Ook in bijlagen',st.diep,()=>st.diep=!st.diep,'Zoekt ook in de tekst van PDF\'s en andere bijlagen');
-  f.insertAdjacentHTML('beforeend','<span class="sep"></span>');
-  const sel=document.createElement('select'); sel.className='chip'; sel.setAttribute('aria-label','Filter op label');
-  sel.innerHTML='<option value="">Alle labels</option>'+LABELS.map(l=>'<option'+(st.label===l?' selected':'')+'>'+esc(l)+'</option>').join('');
-  sel.onchange=()=>{ st.label=sel.value; zoek(); }; f.appendChild(sel);
-  f.insertAdjacentHTML('beforeend','<span class="hint" style="margin-left:6px">Tip: <b>van:</b>naam · <b>object:</b>OBJ001234 · <b>-woord</b> sluit uit · <b>"exacte zin"</b></span>');
+  const rij1=document.createElement('div'); rij1.className='frij';
+  PERIODES.forEach(([k,t])=>{ const b=document.createElement('button'); b.type='button'; b.className='chip'+(st.periode===k&&!st.eigen?' on':''); b.textContent=t; b.onclick=()=>{ st.eigen=false; zetPeriode(k); renderFilters(); zoek(); }; rij1.appendChild(b); });
+  rij1.insertAdjacentHTML('beforeend','<span class="sep"></span><label class="fl">Van <input type="date" id="fVanaf" value="'+esc(st.vanaf)+'"></label><label class="fl">tot <input type="date" id="fTot" value="'+esc(st.tot)+'"></label>');
+  f.appendChild(rij1);
+  const rij2=document.createElement('div'); rij2.className='frij';
+  rij2.innerHTML='<select id="fRichting" class="fs" aria-label="In- of uitgaand"><option value="">In- en uitgaand</option><option value="Ingekomen">Inkomend</option><option value="Verzonden">Uitgaand</option></select>'
+    +'<select id="fLabel" class="fs" aria-label="Label"><option value="">Alle labels</option>'+LABELS.map(l=>'<option'+(st.label===l?' selected':'')+'>'+esc(l)+'</option>').join('')+'</select>'
+    +kiezer('fObj','Object',st.obj)+kiezer('fKlant','Klant',st.klant)+kiezer('fLev','Leverancier',st.lev)
+    +'<input id="fVan" class="fs" placeholder="Afzender (e-mailadres)" value="'+esc(st.van)+'" style="width:190px">'
+    +'<button type="button" class="chip'+(st.diep?' on':'')+'" id="fDiep" title="Zoekt ook in de tekst van PDF\'s en andere bijlagen">Kernwoord ook in bijlagen</button>'
+    +'<button type="button" class="chip" id="fWis">Filters wissen</button>';
+  f.appendChild(rij2);
+  $('fRichting').value=st.richting;
+  $('fVanaf').onchange=e=>{ st.vanaf=e.target.value; st.eigen=true; renderFilters(); zoek(); };
+  $('fTot').onchange=e=>{ st.tot=e.target.value; st.eigen=true; renderFilters(); zoek(); };
+  $('fRichting').onchange=e=>{ st.richting=e.target.value; zoek(); };
+  $('fLabel').onchange=e=>{ st.label=e.target.value; zoek(); };
+  $('fVan').onchange=e=>{ st.van=e.target.value.trim().toLowerCase(); zoek(); };
+  $('fDiep').onclick=()=>{ st.diep=!st.diep; renderFilters(); zoek(); };
+  $('fWis').onclick=()=>{ Object.assign(st,{richting:'',label:'',obj:null,klant:null,lev:null,van:'',diep:false,eigen:false}); zetPeriode('30'); $('q').value=''; renderFilters(); zoek(); };
+  koppelKiezer('fObj',q=>api('objecten',{q}),o=>({nr:o.objectnr,naam:o.naam,extra:[o.adres,o.plaats].filter(Boolean).join(', ')}),v=>st.obj=v);
+  koppelKiezer('fKlant',q=>api('bczoeken',{soort:'klant',q}),o=>({nr:o.nr,naam:o.naam}),v=>st.klant=v);
+  koppelKiezer('fLev',q=>api('bczoeken',{soort:'leverancier',q}),o=>({nr:o.nr,naam:o.naam}),v=>st.lev=v);
+}
+function kiezer(id,titel,v){
+  if(v) return '<span class="chip on kz" id="'+id+'" title="'+esc(titel)+'">'+esc(titel)+': <b>'+esc(v.nr)+'</b> '+esc(v.naam||'')+' <a role="button" aria-label="'+esc(titel)+' wissen">×</a></span>';
+  return '<span class="kz" id="'+id+'"><input class="fs" placeholder="'+esc(titel)+'…" aria-label="Filter op '+esc(titel.toLowerCase())+'"><span class="kzres"></span></span>';
+}
+function koppelKiezer(id,fn,map,zet){
+  const el=$(id); const x=el.querySelector('a'); if(x){ x.onclick=()=>{ zet(null); renderFilters(); zoek(); }; return; }
+  const inp=el.querySelector('input'), res=el.querySelector('.kzres'); let t=null;
+  inp.oninput=()=>{ clearTimeout(t); const q=inp.value.trim(); if(q.length<2){ res.innerHTML=''; return; }
+    t=setTimeout(async()=>{ res.innerHTML='<div class="hint" style="padding:6px 10px">Zoeken…</div>';
+      try{ const l=(await fn(q))||[]; res.innerHTML=''; if(!l.length){ res.innerHTML='<div class="hint" style="padding:6px 10px">Niets gevonden</div>'; return; }
+        l.slice(0,10).map(map).forEach(o=>{ const b=document.createElement('button'); b.type='button'; b.innerHTML='<b>'+esc(o.nr)+'</b> '+esc(o.naam||'')+(o.extra?'<br><span class="hint">'+esc(o.extra)+'</span>':''); b.onmousedown=e=>{ e.preventDefault(); zet({nr:o.nr,naam:o.naam}); renderFilters(); zoek(); }; res.appendChild(b); });
+      }catch(e){ res.innerHTML='<div class="msg err">'+esc(e.message)+'</div>'; } },350); };
+  inp.onblur=()=>setTimeout(()=>res.innerHTML='',200);
 }
 function datumIso(t){ t=String(t||'').trim(); let m=t.match(/^(\d{1,2})-(\d{1,2})-(\d{4})$/); if(m) return m[3]+'-'+m[2].padStart(2,'0')+'-'+m[1].padStart(2,'0'); m=t.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/); if(m) return m[1]+'-'+m[2].padStart(2,'0')+'-'+m[3].padStart(2,'0'); return ''; }
 function bouwZoek(invoer){
@@ -163,17 +201,23 @@ function bouwZoek(invoer){
     const w=kw(t); if(w) kql.push(w+'*');
   });
   const snel={};
-  if(st.periode&&!filters.vanaf){ const d=new Date(); if(st.periode==='365') d.setMonth(0,1); else d.setDate(d.getDate()-(+st.periode)); snel.vanaf=d.toISOString().slice(0,10); }
+  if(st.vanaf) snel.vanaf=st.vanaf; if(st.tot) snel.tot=st.tot;
   if(st.richting) snel.richting=st.richting;
   if(st.label) snel.label=st.label;
+  if(st.obj) snel.objectnr=st.obj.nr; if(st.klant) snel.klantnr=st.klant.nr; if(st.lev) snel.leveranciernr=st.lev.nr;
+  if(st.van) snel.van=st.van;
   const k=kql.join(' ');
   return {kql:(k&&!st.diep)?k+' SoortOWSCHCS:Mail':k,filters:Object.assign(snel,filters)};
 }
 
 /* ---------- zoeken ---------- */
 async function zoek(meer){
-  const q=$('q').value.trim(); const zb=bouwZoek(q);
-  if(!zb.kql) zb.kql='SoortOWSCHCS:Mail';   /* zonder zoekwoord: nieuwste mails binnen de filters */
+  const q=$('q').value.trim(); const zb=bouwZoek(q); const fl=zb.filters;
+  /* Zonder kernwoord filtert de API direct in de lijst. SharePoint weigert dat bij te veel treffers,
+     dus dan is een gerichte filter nodig (object/klant/leverancier/afzender) of een periode van max. ±3 maanden. */
+  if(!zb.kql){ const gericht=fl.objectnr||fl.klantnr||fl.leveranciernr||fl.van||fl.documentnr;
+    const dagen=fl.vanaf?(Date.now()-new Date(fl.vanaf))/864e5:1e9;
+    if(!gericht&&dagen>95){ st.items=[]; $('res').innerHTML=''; $('info').innerHTML='Typ een kernwoord, kies een object, klant, leverancier of afzender, of kies een periode van maximaal 3 maanden.'; return; } }
   const nr=++st.nr;
   if(!meer){ st.items=[]; st.q=q; $('res').innerHTML=''; $('info').textContent='Zoeken in het archief…'; }
   try{
@@ -308,7 +352,7 @@ function demoApi(naam,body){
     {id:1,messageId:'<a1>',onderwerp:'RE: 0241-25 Ringerskwartier Alkmaar – inspectierapport',van:'ruud@voorbeeld-installatie.nl',datum:new Date(Date.now()-3600e3).toISOString(),richting:'Ingekomen',objectnr:'OBJ002111',objectnaam:'273 Appartementen Ringerskwartier',plaats:'Alkmaar',labels:['Object','Service/Support'],samenvatting:'Vraag om het inspectierapport van de brandmeldinstallatie en een datum voor de herinspectie.',koppelbron:'CENTRALE (archief)',pdf:'#',outlook:'#'},
     {id:2,messageId:'<a2>',onderwerp:'Factuur VFA260245',van:'henk@dfsg.nl',datum:new Date(Date.now()-86400e3).toISOString(),richting:'Verzonden',klantnr:'12351',klant:'Voorbeeld Elektrotechniek',documentnr:'VFA260245',documentsoort:'Factuur',labels:['Financieel'],samenvatting:'Eigen verzonden factuur, ter info.',koppelbron:'Inbox Agent',pdf:'#'},
     {id:3,messageId:'<a3>',onderwerp:'Ticket update #8366',van:'support@voorbeeld-ict.nl',datum:new Date(Date.now()-5*86400e3).toISOString(),richting:'Ingekomen',leveranciernr:'2327',leveranciernaam:'Voorbeeld ICT',labels:['Leverancier','Systeem/Melding'],samenvatting:'Ticket over de back-up is opgelost.',koppelbron:'CENTRALE (archief)',pdf:'#'}];
-  if(naam==='archiefzoeken'){ const q=(body.kql||'').replace(/SoortOWSCHCS:Mail|\*/g,'').trim().toLowerCase(); return Promise.resolve({items:base.filter(x=>!q||JSON.stringify(x).toLowerCase().includes(q)),meer:false,totaal:3}); }
+  if(naam==='archiefzoeken'){ const q=(body.kql||'').replace(/SoortOWSCHCS:Mail|\*/g,'').trim().toLowerCase(); const f=body.filters||{}; return Promise.resolve({items:base.filter(x=>(!q||JSON.stringify(x).toLowerCase().includes(q))&&(!f.objectnr||x.objectnr===f.objectnr)&&(!f.klantnr||x.klantnr===f.klantnr)&&(!f.leveranciernr||x.leveranciernr===f.leveranciernr)&&(!f.richting||x.richting===f.richting)&&(!f.label||(x.labels||[]).includes(f.label))),meer:false}); }
   if(naam==='objecten') return Promise.resolve([{objectnr:'OBJ001809',naam:'Spot Hondsrugpark',adres:'Hondsrugweg 1',plaats:'Amsterdam'}]);
   if(naam==='bczoeken') return Promise.resolve([{nr:body.soort==='klant'?'5001217':'3366',naam:body.soort==='klant'?'Voorbeeld Vastgoed':'Voorbeeld Leverancier'}]);
   if(naam==='archiefwijzigen') return Promise.resolve({ok:true,labels:body.labels});
@@ -325,7 +369,7 @@ async function start(){
     return; }
   $('app').hidden=false;
   try{ const r=await api('labels',{}); const l=(r&&(r.labels||r.value||r))||[]; if(Array.isArray(l)&&l.length) LABELS=l.map(val).filter(x=>x&&!/^(Project|Klant)$/.test(x)); }catch(e){}
-  renderFilters();
+  zetPeriode('30'); renderFilters();
   $('zoekform').onsubmit=e=>{ e.preventDefault(); zoek(); };
   const q=new URLSearchParams(location.search).get('q'); if(q) $('q').value=q;
   zoek(); $('q').focus();
