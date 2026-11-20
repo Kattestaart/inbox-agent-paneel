@@ -500,6 +500,10 @@ let DEMO=false; let WEB=false;
 /* Besluit Henk 20-11-2026: eenvoudige stand. Het paneel corrigeert alleen labels, BC-koppeling en projectmap;
    geen routes, geen Akkoord & doorzetten, geen afspraken. Opslaan stuurt altijd doorzetten:false. */
 const EENVOUDIG=true;
+/* Versiecontrole: Outlook bewaart het paneel lang in de cache. Staat er online een nieuwere versie, dan één keer herladen. */
+const BOUW='2026-11-20b';
+(async()=>{ try{ if(/[?&]demo=1/.test(location.search)) return; const t=await (await fetch(location.pathname+'?nc='+Date.now(),{cache:'no-store'})).text(); const m=t.match(/const BOUW='([^']+)'/);
+  if(m&&m[1]!==BOUW){ const k='paneelHerlaad'; if(sessionStorage.getItem(k)!==m[1]){ sessionStorage.setItem(k,m[1]); location.replace(location.pathname+'?v='+encodeURIComponent(m[1])+location.hash); } } }catch(e){} })();
 const DOORZETTEN_ACTIEF=!EENVOUDIG;
 if(EENVOUDIG) document.documentElement.classList.add('eenvoudig');
 function demoApi(name,body){ const base=[
