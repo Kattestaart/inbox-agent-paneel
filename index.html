@@ -351,7 +351,7 @@
   <div id="main" style="display:none;gap:10px" class="wrap">
     <div class="werkwijze" id="werkwijze">
       <b>Zo werkt het</b>
-      <ol><li><b>Klopt het?</b> Kijk of de agent de labels, de koppeling met BC en de projectmap goed heeft.</li><li><b>Pas aan</b> wat niet klopt en zeg eventueel waarom.</li><li><b>Opslaan</b>: de mail krijgt de juiste categorie en de agent leert ervan. Er wordt niets verplaatst of verstuurd.</li></ol>
+      <ol><li><b>Klopt het?</b> Kijk of de agent de labels, de koppeling met BC en de projectmap goed heeft.</li><li><b>Pas aan</b> wat niet klopt en zeg eventueel waarom.</li><li><b>Goedkeuren</b>: de mail krijgt de juiste categorie en de agent leert ervan. Er wordt niets verplaatst of verstuurd.</li></ol>
       <button class="btn sm" id="werkwijzeWeg" type="button">Begrepen</button>
     </div>
     <div class="card">
@@ -475,7 +475,7 @@
 <style>
   /* eenvoudige stand (20-11-2026): alleen herkennen corrigeren */
   .eenvoudig #routecard,.eenvoudig #uitlegKnoppen,.eenvoudig #btnOk,.eenvoudig #meer,.eenvoudig #voorstel,
-  .eenvoudig .stap:has(.nr),.eenvoudig .vt[data-v="routes"],.eenvoudig #leerCard .switch,.eenvoudig #afspraakToets,
+  .eenvoudig .stap:has(.nr),.eenvoudig .vt[data-v="routes"],.eenvoudig .vt[data-v="archief"],.eenvoudig #views,.eenvoudig #leerCard .switch,.eenvoudig #afspraakToets,
   .eenvoudig #leerInstructie,.eenvoudig #leerCard > .tiny,.eenvoudig #leerCard .lbl:has(#afspraakInfo){display:none!important}
   .eenvoudig #bar{grid-template-columns:1fr}
   .eenvoudig #btnSave{background:var(--ok);color:#fff;border-color:var(--ok)}
@@ -501,7 +501,7 @@ let DEMO=false; let WEB=false;
    geen routes, geen Akkoord & doorzetten, geen afspraken. Opslaan stuurt altijd doorzetten:false. */
 const EENVOUDIG=true;
 /* Versiecontrole: Outlook bewaart het paneel lang in de cache. Staat er online een nieuwere versie, dan één keer herladen. */
-const BOUW='2026-11-20b';
+const BOUW='2026-11-20c';
 (async()=>{ try{ if(/[?&]demo=1/.test(location.search)) return; const t=await (await fetch(location.pathname+'?nc='+Date.now(),{cache:'no-store'})).text(); const m=t.match(/const BOUW='([^']+)'/);
   if(m&&m[1]!==BOUW){ const k='paneelHerlaad'; if(sessionStorage.getItem(k)!==m[1]){ sessionStorage.setItem(k,m[1]); location.replace(location.pathname+'?v='+encodeURIComponent(m[1])+location.hash); } } }catch(e){} })();
 const DOORZETTEN_ACTIEF=!EENVOUDIG;
@@ -735,7 +735,7 @@ function setMode(mode,tekst){
   $('logTitel').textContent='Hoe kwam de agent hierop?';
   $('herkenOpnieuw').textContent=am?'laat de agent opnieuw lezen':'opnieuw laten lezen';
   $('btnOk').className='btn '+(am?'back':'ok'); $('btnOk').textContent=am?'← Terug':(DOORZETTEN_ACTIEF?'✓ Akkoord & doorzetten':'✓ Akkoord');
-  $('btnSave').textContent=am?'Opslaan in archief':(DOORZETTEN_ACTIEF?'Alleen opslaan':'Opslaan'); $('btnSave').className='btn '+(am?'steel':'save');
+  $('btnSave').textContent=am?'Opslaan in archief':(DOORZETTEN_ACTIEF?'Alleen opslaan':(EENVOUDIG?'✓ Goedkeuren':'Opslaan')); $('btnSave').className='btn '+(am?'steel':'save');
   if(!am&&state&&state.route) knopTekst();
 }
 function uitlegKnoppen(){ const u=$('uitlegKnoppen'); if(u&&!DOORZETTEN_ACTIEF) u.innerHTML='<b>Akkoord</b>: de agent voert de gekozen actie uit. <b>Er wordt nooit iets verstuurd, dat doe je altijd zelf.</b>'; }
