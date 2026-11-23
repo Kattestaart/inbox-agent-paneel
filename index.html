@@ -501,7 +501,7 @@ let DEMO=false; let WEB=false;
    geen routes, geen Akkoord & doorzetten, geen afspraken. Opslaan stuurt altijd doorzetten:false. */
 const EENVOUDIG=true;
 /* Versiecontrole: Outlook bewaart het paneel lang in de cache. Staat er online een nieuwere versie, dan één keer herladen. */
-const BOUW='2026-11-20c';
+const BOUW='2026-11-23a';
 (async()=>{ try{ if(/[?&]demo=1/.test(location.search)) return; const t=await (await fetch(location.pathname+'?nc='+Date.now(),{cache:'no-store'})).text(); const m=t.match(/const BOUW='([^']+)'/);
   if(m&&m[1]!==BOUW){ const k='paneelHerlaad'; if(sessionStorage.getItem(k)!==m[1]){ sessionStorage.setItem(k,m[1]); location.replace(location.pathname+'?v='+encodeURIComponent(m[1])+location.hash); } } }catch(e){} })();
 const DOORZETTEN_ACTIEF=!EENVOUDIG;
@@ -758,6 +758,9 @@ async function load(){
   msg('Beslissing van de agent ophalen…','warn');
   state=blank(); state.mode='inkomend'; state.title=it.subject||''; state.outlookId=Office.context.mailbox.convertToRestId(it.itemId,Office.MailboxEnums.RestVersion.v2_0);
   ['objRes','klantRes','levRes','docRes','mapRes'].forEach(i=>$(i).innerHTML=''); $('mapPlaats').value='';
+  /* Fix 23-11: leervelden altijd leeg bij een nieuwe mail, anders leert de agent de uitleg van de vorige mail */
+  $('correctie').value=''; $('leerInstructie').value=''; $('leerAan').checked=false; $('afspraakInfo').innerHTML='';
+  if($('leerHint')){ $('leerHint').hidden=true; $('leerHint').innerHTML=''; } $('leerCard').open=false; $('relatie').value='Onbekend';
   try{
     const d=await api('beslissing',{messageId:it.internetMessageId});
     $('subject').textContent=state.title; $('from').textContent=(it.from&&(it.from.displayName+' <'+it.from.emailAddress+'>'))||'';
@@ -789,6 +792,7 @@ async function save(akkoord){
     if(!DEMO&&cfg.archiefwijzigen){ try{ const it=Office.context.mailbox.item; const a=await api('archiefwijzigen',Object.assign(koppelBody(),{messageId:it.internetMessageId,bron:akkoord?'Inkomend (akkoord)':'Inkomend'})); if(a.gevonden&&a.ok) extra=' · ook in archief bijgewerkt'; }catch(e){} }
     if(r.ok===false||r.fout){ msg('Opgeslagen in de lijst, maar Outlook is NIET bijgewerkt: '+(r.fout||'onbekende fout')+'. Probeer opnieuw.','err'); } else msg((DOORZETTEN_ACTIEF?(akkoord?'Doorgezet':'Correcties opgeslagen (nog niet doorgezet)'):(akkoord?'Akkoord vastgelegd':'Opgeslagen'))+' · in Outlook staat nu: '+((r.outlookNu||r.categorieen||[]).join(', ')||'(geen categorie)')+' — ziet Outlook er anders uit, dan loopt de weergave even achter (F9 of even wachten).'+(r.verplaatst==='Succeeded'?' · mail verplaatst':'')+extra,'ok');
     if(akkoord&&item){ item.Gecontroleerd=true; setMode('inkomend',inkomendTekst()); }
+    if(r.ok!==false&&!r.fout) conceptWis(); /* opgeslagen = tijdelijke tekst niet meer terugzetten */
     if(akkoord&&$('leerAan')&&$('leerAan').checked&&!DEMO&&cfg.regels){ try{ const it=Office.context.mailbox.item; await api('regels',{actie:'maak',messageId:it.internetMessageId,route:state.route,labels:canon([...state.labels]),instructie:$('leerInstructie').value.trim()}); extra+=' · afspraak vastgelegd'; }catch(e){ extra+=' · afspraak vastleggen mislukt'; } }
     if(akkoord&&DOORZETTEN_ACTIEF){
       msg('✓ Gelukt. '+(routeZinKern(state.route)||'De agent gaat aan de slag.')+' '+(WEB?'Terug naar de werklijst…':'Je kunt de volgende mail openen.'),'ok');
